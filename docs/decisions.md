@@ -3,6 +3,44 @@
 Short, dated entries. Newest first. Record *why*, not just *what*, so nobody (human or AI)
 re-proposes a rejected idea without knowing the history.
 
+## 2026-09-20 — `dev` / `comp` build variants; Panels and tuning are dev-only
+
+R704.D names FTC Dashboard and FTControl Panels as prohibited streaming services during matches,
+and the Pedro tuning server (port 10158) starts unconditionally whenever its library is present.
+So TeamCode has product flavors: `dev` (Panels `fullpanels` + `tuning`, source in
+`TeamCode/src/dev/java`) and `comp` (neither). `com.bylazar:configurables` is `compileOnly` so
+`@Configurable` compiles in both; Android drops annotations whose class is absent at runtime.
+Competition robots run `compDebug`.
+
+## 2026-09-24 — Autonomous routines are JSON route files
+
+Supersedes "Declarative autonomous framework" below: the team asked for a declarative *format*,
+not a Java DSL. Routes live in `TeamCode/src/main/assets/autos/NAME.json` (waypoints + step
+list, RED frame) and are parsed/validated/compiled at INIT by `auto/route/` onto the existing
+`Step` engine, which remains the interpreter. A copy at `/sdcard/FIRST/autos/NAME.json` on the
+Control Hub overrides the APK asset so routes can change at an event without a rebuild.
+Subsystem actions stay in Java and are exposed by name via `ActionRegistry`. Waypoints are
+copied into `@Configurable AutoWaypoints` for live tuning in Panels. JSON parsing uses the
+Gson 2.8.0 bundled inside RobotCore (adding a newer Gson shadows it and breaks the build), so
+the parser sticks to that API; it is pure Java, so parser/compiler are unit-tested on the desktop.
+
+## 2026-09-20 — TeamCode compiles against API 34 (SDK default is 30)
+
+Panels' AndroidX dependencies refuse to compile against API 30. `compileSdkVersion 34` is set in
+`TeamCode/build.gradle` only (not the SDK-shipped `build.common.gradle`), so it survives SDK
+updates. `targetSdkVersion` is untouched, so runtime behaviour on the Control Hub is unchanged.
+
+## 2026-09-20 — Declarative autonomous framework (`auto/`)
+
+Small command-style engine rather than a data file: `Step` (start/update/end), combinators in
+`Steps` (sequence, parallel, race, timeout, waits, instant, follow, hold), `AutoOpMode` owning the
+loop and Follower. Chosen over a JSON/YAML route format because subsystem actions need code
+binding anyway, and because Panels edits `public static` fields — so waypoints live in
+`@Configurable` points classes as mutable `Waypoint`s (Pedro's `Pose` is immutable and private).
+Waypoints are authored in the RED frame; `Alliance.BLUE` applies
+`PoseFactory.mirrorAroundPoint(72, 72)` (180° rotation — verified empirically on the JDK; field
+symmetry itself still TODO in docs/field.md).
+
 ## 2026-09-20 — TeleOp is robot-centric
 
 Driver preference. Field-centric drive (heading from the Pinpoint via `ManualDrive.fieldCentric`)

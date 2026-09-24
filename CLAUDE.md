@@ -14,9 +14,17 @@ Game rules summary: [RULES.md](RULES.md) — read it before designing any mechan
 
 - `RobotHardware.java` — single source of truth for hardware config names and `hardwareMap` lookups. Never hardcode a config string anywhere else.
 - `subsystems/` — one class per mechanism (Drivetrain, Intake, Launcher, ...). Subsystems own their hardware and expose intent-level methods (`launch()`, `setIntake(...)`), not raw motor access.
-- `opmodes/auto/` — Autonomous OpModes. Thin: build Pedro paths, sequence subsystems.
+- `auto/` — autonomous engine: `JsonAutoOpMode` (routine from a JSON route file), `Step`/`Steps`,
+  `Waypoint`/`Alliance`, `route/` (parser, compiler, action registry, file loading). Format and
+  rules in `auto/readme.md`.
+- `TeamCode/src/main/assets/autos/*.json` — **the autonomous routines.** Waypoints + step list,
+  RED frame. A copy at `/sdcard/FIRST/autos/` on the hub overrides the APK one (no rebuild).
+- `opmodes/auto/` — one tiny `JsonAutoOpMode` subclass per route naming the file and registering
+  subsystem actions; nested `Red`/`Blue` classes register both alliances.
 - `opmodes/teleop/` — TeleOp OpModes. Thin: map gamepad → subsystem calls.
-- `pedro/` — PedroPathing constants and tuning OpModes.
+- `pedro/` — PedroPathing constants (`Constants.java`).
+- `TeamCode/src/dev/java/` — **dev-only source set** (build variant `devDebug`): Pedro tuning
+  registrations/procedures and anything else that must not ship in a competition build.
 - `util/` — hardware-free helpers (math, state machines, timers). Must be unit-testable.
 
 ## Conventions
@@ -26,11 +34,18 @@ Game rules summary: [RULES.md](RULES.md) — read it before designing any mechan
 - Copy patterns from the SDK samples in `FtcRobotController/src/main/java/org/firstinspires/ftc/robotcontroller/external/samples/` rather than recalling API usage from memory. Key samples: `SensorLimelight3A`, `ConceptAprilTag*`, `SensorGoBildaPinpoint`, `ConceptMotorBulkRead`, `RobotTeleopMecanumFieldRelativeDrive`.
 - Enable bulk reads on every hub (`LynxModule.BulkCachingMode.MANUAL` + `clearBulkCache()` once per loop — see `ConceptMotorBulkRead`). Cycle time is the top optimization target.
 - No blocking `sleep()` in TeleOp loops; use timers/state machines.
-- Keep decision-making logic hardware-free so it can be unit tested.
+- Keep decision-making logic hardware-free so it can be unit tested. Pedro `core` is pure Java,
+  so path/pose/`Step` logic runs in JUnit on the desktop (see `TeamCode/src/test`).
+- Autonomous: routines are JSON route files, not Java. New subsystem actions are exposed to
+  routes by registering them in the OpMode's `registerActions`. Never sleep or loop inside a
+  `Step`; the `AutoOpMode` loop drives everything.
 
 ## Libraries
 
-- [PedroPathing](https://pedropathing.com/) for autonomous pathing (`com.pedropathing:revhub`, `com.pedropathing:tuning`).
+- [PedroPathing](https://pedropathing.com/) for autonomous pathing (`com.pedropathing:revhub`; `tuning` is dev-only).
+- [Panels](https://panels.bylazar.com/) dashboard, **dev builds only** (`com.bylazar:fullpanels`),
+  at http://192.168.43.1:8001. `@Configurable` classes with `public static` fields are live-editable;
+  the annotation module is compile-only so the same code builds for `comp`.
   Pedro **3.0** — its API differs from the 2.x examples common online. Verify against the library source before use: `revhub` ships a `-sources.jar` in `~/.gradle/caches/modules-2/files-2.1/com.pedropathing/`; `core` needs `javap`. Construction patterns are in `pedro/Constants.java`.
 
 ## Build & verify
@@ -39,10 +54,14 @@ Java is not on PATH; the build uses Android Studio's bundled JDK. `.claude/setti
 `JAVA_HOME` for Claude Code sessions; in a plain terminal run
 `export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"` first.
 
+Two build variants (flavor `dev` | `comp` × `debug`): **devDebug** for daily work (Panels +
+Pedro tuning web UI), **compDebug** for competition (no Wi-Fi dashboards — R704.D). Switch in
+Android Studio's Build Variants panel. Both must compile.
+
 ```
-./gradlew :TeamCode:compileDebugJavaWithJavac   # fast check (~2 s warm)
-./gradlew :TeamCode:testDebugUnitTest           # unit tests (TeamCode/src/test)
-./gradlew :TeamCode:assembleDebug               # full APK
+./gradlew :TeamCode:compileDevDebugJavaWithJavac :TeamCode:compileCompDebugJavaWithJavac  # fast check
+./gradlew :TeamCode:testDevDebugUnitTest        # unit tests (TeamCode/src/test) — hardware-free
+./gradlew :TeamCode:assembleDevDebug            # dev APK;  assembleCompDebug for competition
 ```
 
 A PostToolUse hook (`scripts/compile-check.sh`) recompiles TeamCode automatically after any
@@ -51,7 +70,8 @@ work done. Code is not done until it compiles and tests pass. There is no simula
 
 ## Rules that constrain code (details in RULES.md)
 
-- **R704** — no FTC Dashboard, streaming, or Wi-Fi logging during matches. Tuning/telemetry tools must be gated off in `comp` OpModes.
+- **R704** — no FTC Dashboard/Panels, streaming, or Wi-Fi logging during matches. Panels and the
+  Pedro tuning server exist only in the `dev` build variant; competition robots run `compDebug`.
 - **G305 / G403** — use `preselectTeleOp` so TeleOp auto-loads after AUTO; INIT must not move any actuator (the 8 s AUTO→TELEOP transition must be motionless).
 - **G407** — never CONTROL more than 4 scoring elements. Intake logic should count and stop.
 - **G410 / G426** — NECTAR into FLOWERS, and entry of all remaining NECTAR, only in the final 60 s.

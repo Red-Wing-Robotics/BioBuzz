@@ -1,0 +1,14 @@
+{
+  "name": "Leave + Park",
+  "waypoints": {
+    "START": [8, 60, 0],
+    "LEAVE": [20, 60, 0],
+    "PARK":  [20, 20, 0]
+  },
+  "start": "START",
+  "routine": [
+    { "follow": { "line": ["START", "LEAVE"] }, "name": "leave wall" },
+    { "wait": 0.5 },
+    { "follow": { "line": ["LEAVE", "PARK"] }, "name": "park", "timeout": 5 }
+  ]
+}

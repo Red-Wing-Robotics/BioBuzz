@@ -19,12 +19,36 @@ apply from: '../build.dependencies.gradle'
 android {
     namespace = 'org.firstinspires.ftc.teamcode'
 
+    // Panels' AndroidX dependencies require compiling against API 34+. This overrides the FTC
+    // SDK's compileSdkVersion 30 (build.common.gradle) for TeamCode only; targetSdk is unchanged.
+    compileSdkVersion 34
+
     packagingOptions {
         jniLibs.useLegacyPackaging true
+    }
+
+    // Build variants (Android Studio > Build Variants panel):
+    //   devDebug  - daily development: includes Panels and the Pedro tuning web UI.
+    //   compDebug - competition: no Wi-Fi dashboard/streaming services (R704.D).
+    // Dev-only source lives in TeamCode/src/dev/java.
+    flavorDimensions "env"
+    productFlavors {
+        dev  { dimension "env"; isDefault = true }
+        comp { dimension "env" }
     }
 }
 
 dependencies {
     implementation project(':FtcRobotController')
     testImplementation 'junit:junit:4.13.2'
+    // JSON parsing uses the Gson 2.8.0 that RobotCore bundles (libs/gson-2.8.0.jar). Do not add
+    // another Gson: it would shadow/duplicate it. Stick to the 2.8.0 API (no keySet/parseString).
+
+    // @Configurable annotation only: resolvable at compile time in every variant, absent at
+    // runtime in comp (Android ignores annotations whose class is missing).
+    compileOnly 'com.bylazar:configurables:1.0.5'
+
+    // Dev-only Wi-Fi tools, prohibited during matches by R704.D, so excluded from comp builds.
+    devImplementation 'com.bylazar:fullpanels:1.0.13'   // http://192.168.43.1:8001
+    devImplementation 'com.pedropathing:tuning:1.0.1'   // http://192.168.43.1:10158
 }

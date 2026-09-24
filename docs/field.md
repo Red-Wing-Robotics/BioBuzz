@@ -7,6 +7,11 @@ Dimensions and rules: see [RULES.md](../RULES.md) §3. Field is ~144 in × 144 i
 TODO: define the frame used for PedroPathing (origin, axis directions, units, heading zero).
 Every pose in this file and in code must use it.
 
+Autonomous waypoints are authored **once, in the RED frame** (`@Configurable` points classes in
+`opmodes/auto/`). `Alliance.BLUE` rotates them 180° about the field centre (72, 72). TODO: confirm
+the BIOBUZZ field is rotationally (not mirror) symmetric — GARDENs in opposite corners suggest it
+is; if not, switch `Alliance.BLUE` to `mirrorX(72)`.
+
 ## Start poses
 
 | OpMode | Alliance | Position | Pose (x, y, heading) | Notes |

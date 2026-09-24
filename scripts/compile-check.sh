@@ -13,8 +13,8 @@ esac
 cd "${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "$0")/.." && pwd)}" || exit 0
 export JAVA_HOME="${JAVA_HOME:-/Applications/Android Studio.app/Contents/jbr/Contents/Home}"
 
-out=$(./gradlew :TeamCode:compileDebugJavaWithJavac :TeamCode:compileDebugUnitTestJavaWithJavac \
-        -q --console=plain 2>&1)
+out=$(./gradlew :TeamCode:compileDevDebugJavaWithJavac :TeamCode:compileCompDebugJavaWithJavac \
+        :TeamCode:compileDevDebugUnitTestJavaWithJavac -q --console=plain 2>&1)
 status=$?
 
 if [ "$status" -ne 0 ]; then

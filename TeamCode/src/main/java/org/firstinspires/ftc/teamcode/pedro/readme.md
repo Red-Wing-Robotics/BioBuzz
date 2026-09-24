@@ -4,14 +4,15 @@ PedroPathing 3.0 configuration and tuning.
 
 - `Constants.java` — `drivetrainConfig` (MecanumConfig), `localizerConfig` (PinpointConfig),
   `foresightConfig`, and `create(hardwareMap)` which builds the `Follower`. Tuned 2026-09-20.
-- `Tuning.java` — `@Tuner` factories that register the procedures in `procedures/` (vendored from
-  the Pedro Quickstart).
+- `Tuning.java` and `procedures/` (vendored from the Pedro Quickstart) live in the **dev source
+  set**, `TeamCode/src/dev/java/.../pedro/`, because the tuning web server must not ship in
+  competition builds (R704.D). They are only compiled into the `devDebug` variant.
 
 ## Running the tuners
 
 The tuning UI is a **web page served by the Robot Controller**, not a Driver Station OpMode:
 
-1. Deploy the app and connect your laptop to the Control Hub's Wi-Fi.
+1. Deploy the **devDebug** variant and connect your laptop to the Control Hub's Wi-Fi.
 2. Open **http://192.168.43.1:10158** (same address as the RC console, different port).
 3. Run **Mecanum Tuner → Pinpoint Tuner → Foresight Tuner**, in that order — later tuners drive
    the robot using the earlier results. Each ends with a Java snippet: paste it into
