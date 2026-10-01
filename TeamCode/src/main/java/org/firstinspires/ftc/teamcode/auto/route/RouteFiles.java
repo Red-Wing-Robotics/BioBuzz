@@ -16,7 +16,8 @@ import java.nio.charset.StandardCharsets;
  * the APK, so routes can be changed at an event without a rebuild:
  *
  *   1. /sdcard/FIRST/autos/NAME.json   (push with: adb connect 192.168.43.1:5555 &&
- *                                        adb push NAME.json /sdcard/FIRST/autos/)
+ *                                        adb push NAME.json /sdcard/FIRST/autos/NAME.json —
+ *                                        the full path, so adb creates the folder if needed)
  *   2. APK asset  TeamCode/src/main/assets/autos/NAME.json   (the version-controlled copy)
  */
 public final class RouteFiles {

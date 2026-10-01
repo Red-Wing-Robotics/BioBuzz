@@ -3,6 +3,21 @@
 Short, dated entries. Newest first. Record *why*, not just *what*, so nobody (human or AI)
 re-proposes a rejected idea without knowing the history.
 
+## 2026-10-01 — TeleOp controls live in control schemes (`teleop/`)
+
+Every gamepad assignment is a `Binding` declared in a `ControlScheme` (`teleop/schemes/`).
+Schemes map input to plain `DriverCommands`; `TeleOpBase` drives, and `CompTeleOp.apply` drives
+the subsystems. Variants are nested OpModes: `Red`/`Blue` (two drivers, preselected by each
+alliance's autos) and `Solo` (practice). Schemes are Java, not JSON like the autos. Bindings carry
+behaviour (hold vs toggle, guards) that needs code, compile errors beat INIT errors, and drivers
+rely on fixed button positions, so remapping at an event is rare. The numbers that do get tweaked
+(deadband, curve, slow scale) are `@Configurable` in `DriveFeel`. We chose not to use a
+command-based library (FTCLib, NextFTC) because it would duplicate the `Step` engine; any TeleOp
+macros should run `Step`s. Edge detection is our own (`GamepadState` compares with the previous
+loop): the SDK's `aWasPressed()` reports a press only to its first caller, and `Gamepad` can't be
+constructed in JUnit (it calls `android.os.SystemClock`). Replaces `DriveTeleOp`; driving is
+unchanged.
+
 ## 2026-09-20 — `dev` / `comp` build variants; Panels and tuning are dev-only
 
 R704.D names FTC Dashboard and FTControl Panels as prohibited streaming services during matches,

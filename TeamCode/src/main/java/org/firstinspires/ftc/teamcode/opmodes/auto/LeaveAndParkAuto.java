@@ -17,12 +17,12 @@ public abstract class LeaveAndParkAuto extends JsonAutoOpMode {
         return "leave_and_park";
     }
 
-    @Autonomous(name = "Red: Leave + Park", group = "comp", preselectTeleOp = "Drive TeleOp")
+    @Autonomous(name = "Red: Leave + Park", group = "comp", preselectTeleOp = "Red: TeleOp")
     public static class Red extends LeaveAndParkAuto {
         @Override protected Alliance alliance() { return Alliance.RED; }
     }
 
-    @Autonomous(name = "Blue: Leave + Park", group = "comp", preselectTeleOp = "Drive TeleOp")
+    @Autonomous(name = "Blue: Leave + Park", group = "comp", preselectTeleOp = "Blue: TeleOp")
     public static class Blue extends LeaveAndParkAuto {
         @Override protected Alliance alliance() { return Alliance.BLUE; }
     }

@@ -21,7 +21,7 @@
  */
 
 
-package org.firstinspires.ftc.teamcode;
+package org.firstinspires.ftc.teamcode.opmodes.teleop;
 
 import static com.qualcomm.robotcore.hardware.DcMotor.ZeroPowerBehavior.BRAKE;
 
@@ -49,7 +49,7 @@ import com.qualcomm.robotcore.hardware.PIDFCoefficients;
  * we will also need to adjust the "PIDF" coefficients with some that are a better fit for our application.
  */
 
-@TeleOp(name = "BioBuzz StarterBot Teleop", group = "StarterBot")
+@TeleOp(name = "BioBuzz StarterBot Teleop", group = "comp")
 //@Disabled
 public class BioBuzzStarterbotTeleop extends OpMode {
 
@@ -72,8 +72,8 @@ public class BioBuzzStarterbotTeleop extends OpMode {
      * in the launch() function to only run the windmill servo when the motor is spinning fast
      * enough to make a successful throw.
      */
-    public final int LAUNCHER_TARGET_VELOCITY = 1250;
-    public final int LAUNCHER_MIN_VELOCITY = 1200;
+    public final int LAUNCHER_TARGET_VELOCITY = 1100;
+    public final int LAUNCHER_MIN_VELOCITY = 1050;
 
     /*
      * These two variables store the power we need to apply to the motors. In other cases, we may
@@ -85,6 +85,10 @@ public class BioBuzzStarterbotTeleop extends OpMode {
 
     // Create a variable to set to the intake.
     double intakePower;
+
+    // Last values read/commanded in launch(), kept for telemetry so we don't read hardware twice.
+    double launcherVelocity;
+    double windmillPower;
 
     /*
      * Code to run ONCE when the driver hits INIT
@@ -147,7 +151,7 @@ public class BioBuzzStarterbotTeleop extends OpMode {
          * servos work to pull elements into the intake.
          */
         rightIntakeServo.setDirection(DcMotorSimple.Direction.REVERSE);
-        windmillServo.setDirection(DcMotorSimple.Direction.REVERSE);
+        windmillServo.setDirection(DcMotorSimple.Direction.FORWARD);
 
         /*
          * Tell the driver that initialization is complete.
@@ -220,6 +224,10 @@ public class BioBuzzStarterbotTeleop extends OpMode {
          * Show motor powers on the Driver Station via telemetry.
          */
         telemetry.addData("Motors", "left (%.2f), right (%.2f)", leftPower, rightPower);
+        telemetry.addData("Launcher", "%.0f / %d ticks/s", launcherVelocity,
+                gamepad1.right_bumper ? LAUNCHER_TARGET_VELOCITY : 0);
+        telemetry.addData("Windmill", "%.2f", windmillPower);
+        telemetry.addData("Intake", "%.2f", intakePower);
         telemetry.addLine();
 
     }
@@ -264,12 +272,14 @@ public class BioBuzzStarterbotTeleop extends OpMode {
          * add some power to the intake power. This can sometimes help dislodge stuck elements from
          * inside the hopper.
          */
-        if (gamepad1.right_bumper && launcher.getVelocity() > LAUNCHER_MIN_VELOCITY) {
-            windmillServo.setPower(1);
+        launcherVelocity = launcher.getVelocity();
+        if (gamepad1.right_bumper && launcherVelocity > LAUNCHER_MIN_VELOCITY) {
+            windmillPower = 1;
             intakePower += 0.5;
         } else {
-            windmillServo.setPower(0);
+            windmillPower = 0;
         }
+        windmillServo.setPower(windmillPower);
     }
 
 

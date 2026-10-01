@@ -11,10 +11,14 @@ an event without a rebuild:
 
 ```
 adb connect 192.168.43.1:5555            # once, on the robot's Wi-Fi
-adb push leave_and_park.json /sdcard/FIRST/autos/
+adb push leave_and_park.json /sdcard/FIRST/autos/leave_and_park.json
 ```
-(or Android Studio → Device Explorer). Delete the override to go back to the APK copy. The DS
-telemetry says which one was loaded.
+Give the full file path, not just the folder. Nothing creates `/sdcard/FIRST/autos/` on the hub,
+and pushing to a folder that doesn't exist fails with "remote couldn't create file: Is a
+directory". With a full path, adb creates the folder.
+
+(Or use Android Studio → Device Explorer.) Delete the override to go back to the APK copy:
+`adb shell rm /sdcard/FIRST/autos/leave_and_park.json`. The DS telemetry says which one was loaded.
 
 ```json
 {
