@@ -1,0 +1,4 @@
+// Route View is its own Gradle build, not a module of the robot build: the root settings.gradle
+// belongs to the FTC SDK and is replaced on SDK updates. Run from the repo root:
+//   ./gradlew -p tools/routeview run
+rootProject.name = 'routeview'

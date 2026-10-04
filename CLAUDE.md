@@ -9,6 +9,11 @@ Game rules summary: [RULES.md](RULES.md) — read it before designing any mechan
 - `FtcRobotController/` — the upstream FTC SDK. **Never edit it.** It is replaced wholesale on SDK updates. Its `external/samples/` folder is reference material only.
 - `build.dependencies.gradle` — the only shared gradle file we modify (third-party deps such as PedroPathing).
 - `docs/` — team knowledge: hardware map, field data, decision log.
+- `tools/routeview/` — **Route View**, a desktop tool (its own Gradle build, run with
+  `./gradlew -p tools/routeview run`): live map and editor for the route files, and a push to the
+  hub on every save. It compiles TeamCode's `auto/`, `auto/route/` and test `automaps/` sources itself
+  (`TEAMCODE_SOURCES` in its `build.gradle`), so those must stay free of Android/SDK types. See
+  its `readme.md`.
 
 ## Code structure (TeamCode)
 
@@ -18,7 +23,8 @@ Game rules summary: [RULES.md](RULES.md) — read it before designing any mechan
   `Waypoint`/`Alliance`, `route/` (parser, compiler, action registry, file loading). Format and
   rules in `auto/readme.md`.
 - `TeamCode/src/main/assets/autos/*.json` — **the autonomous routines.** Waypoints + step list,
-  RED frame. A copy at `/sdcard/FIRST/autos/` on the hub overrides the APK one (no rebuild).
+  RED frame. A copy at `/sdcard/FIRST/autos/` on the hub overrides the APK one (no rebuild);
+  Route View pushes it on every save.
 - `opmodes/auto/` — one tiny `JsonAutoOpMode` subclass per route naming the file and registering
   subsystem actions; nested `Red`/`Blue` classes register both alliances.
 - `teleop/` — TeleOp engine: `TeleOpBase` (loop, drive, start pose, endgame cue),
@@ -68,10 +74,12 @@ Android Studio's Build Variants panel. Both must compile.
 ./gradlew :TeamCode:compileDevDebugJavaWithJavac :TeamCode:compileCompDebugJavaWithJavac  # fast check
 ./gradlew :TeamCode:testDevDebugUnitTest        # unit tests (TeamCode/src/test) — hardware-free
 ./gradlew :TeamCode:assembleDevDebug            # dev APK;  assembleCompDebug for competition
+./gradlew -p tools/routeview test               # Route View unit tests (also after auto/ or automaps/ changes)
 ```
 
 A PostToolUse hook (`scripts/compile-check.sh`) recompiles TeamCode automatically after any
-Java edit and reports errors back — but still run the unit tests yourself before declaring
+Java edit, and Route View after edits to it or to the TeamCode sources it shares, and reports
+errors back — but still run the unit tests yourself before declaring
 work done. Code is not done until it compiles and tests pass. There is no simulator — anything touching hardware can only be validated on the robot; say so explicitly when reporting.
 
 ## Rules that constrain code (details in RULES.md)

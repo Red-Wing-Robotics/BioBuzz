@@ -40,7 +40,8 @@ public abstract class JsonAutoOpMode extends AutoOpMode {
         ActionRegistry registry = new ActionRegistry();
         registerActions(registry);
         compiler = new RouteCompiler(alliance(), AutoWaypoints.waypoints, registry);
-        telemetry.addData("route", "%s — %s", name, source);
+        // The checksum matches the one tools/routeview shows for the file it pushed.
+        telemetry.addData("route", "%s — %s · %s", name, source, loaded.checksum);
         telemetry.addData("waypoints", AutoWaypoints.reloadFromFileOnInit ? "from file" : "from Panels (reloadFromFileOnInit=false)");
     }
 

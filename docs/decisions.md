@@ -3,6 +3,30 @@
 Short, dated entries. Newest first. Record *why*, not just *what*, so nobody (human or AI)
 re-proposes a rejected idea without knowing the history.
 
+## 2026-10-04 — Route View: push routes on save, from a desktop tool in its own Gradle build
+
+Changing a route must be much faster than a full deploy, or the hub override loses its point.
+`tools/routeview` watches `assets/autos` and checks each save with the robot's own
+`RouteParser`/`RouteCompiler`. It draws the result with the `docs/autos.pdf` code (`FieldPainter`
+now draws on a `Canvas`; `Pdf.Page` and `SvgCanvas` implement it), serves that on 127.0.0.1, and
+`adb push`es valid files to the hub (save to hub in well under 1 s once Gradle is warm). The DS
+shows the loaded file's CRC-32 (`RouteChecksum`) so a push can be confirmed at INIT.
+Considered and rejected:
+- **A bare file watcher running `adb push`:** pushes half-edited files and fails silently.
+- **Gradle `pushAutos -t`:** ~1.5 s per save of Gradle overhead.
+- **A JSON Schema for validation:** it can't check waypoint or action references and would
+  duplicate the parser. The page's editor (added the same day) checks drafts with the parser on
+  the server instead, and refuses to save what INIT would reject. Any other editor works too,
+  because the tool reacts to the file.
+- **A JavaScript path renderer:** would drift from Pedro's curves.
+- **TeamCode's unit-test source set:** compiles against android.jar at Java 8, so no
+  `com.sun.net.httpserver`.
+- **A separate repo:** the tool must change in step with the route engine.
+
+It's a separate Gradle build (own `settings.gradle`), so the SDK-owned root `settings.gradle` is
+untouched. It compiles the shared TeamCode files from source (`TEAMCODE_SOURCES`), so they must
+stay Android-free.
+
 ## 2026-10-01 — TeleOp assists run `Step`s; TeleOp start pose comes from AUTO or a waypoint
 
 Autonomous actions triggered from TeleOp ("assists") reuse the auto `Step` engine instead of

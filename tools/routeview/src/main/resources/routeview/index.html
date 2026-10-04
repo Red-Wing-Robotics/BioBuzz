@@ -1,0 +1,987 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Route View</title>
+<style>
+  :root {
+    --bg: #f4f5f7; --panel: #ffffff; --ink: #17212b; --muted: #5b6672; --line: #dde1e5;
+    --good: #1e7a3c; --bad: #b3261e; --warn: #8a6410; --red: #c41f33; --blue: #1c5cc0;
+    --good-bg: #e6f2ea; --bad-bg: #f9e6e4; --warn-bg: #f8efd9; --chip: #eef0f2;
+    --tk-key: #1c5cc0; --tk-kind: #8a2bb0; --tk-str: #1e7a3c; --tk-num: #a1520a; --tk-kw: #8a2bb0; --tk-punct: #5b6672;
+    --select: rgba(28, 92, 192, .22);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12161b; --panel: #1b2027; --ink: #e6e9ec; --muted: #9aa4ae; --line: #2c333c;
+      --good: #5cc27a; --bad: #f08079; --warn: #e2b55a; --red: #f06070; --blue: #6f9ff0;
+      --good-bg: #1d3325; --bad-bg: #3a2120; --warn-bg: #3a3020; --chip: #262c34;
+      --tk-key: #7fb0ff; --tk-kind: #d49cf0; --tk-str: #7fd39a; --tk-num: #f0b46a; --tk-kw: #d49cf0; --tk-punct: #9aa4ae;
+      --select: rgba(111, 159, 240, .3);
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 3; }
+  header h1 { font-size: 16px; margin: 0 8px 0 0; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; background: var(--chip); font-size: 13px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
+  .dot.on { background: var(--good); }
+  .spacer { flex: 1; }
+  button, select { font: inherit; font-size: 13px; padding: 4px 10px; border-radius: 6px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); cursor: pointer; }
+  button:hover:not(:disabled) { border-color: var(--muted); }
+  button:disabled { opacity: .45; cursor: default; }
+  button.primary { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+  button.link { border: 0; padding: 0; background: none; color: inherit; text-decoration: underline; font-size: inherit; }
+  label.toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; }
+  .notice { padding: 8px 16px; background: var(--warn-bg); color: var(--warn); font-size: 13px; }
+  .notice.bad { background: var(--bad-bg); color: var(--bad); }
+  main { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 16px; padding: 16px; align-items: start; }
+  @media (max-width: 900px) { main { grid-template-columns: minmax(0, 1fr); } }
+  .routes { display: flex; flex-direction: column; gap: 8px; }
+  .route { text-align: left; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); width: 100%; }
+  .route.sel { border-color: var(--ink); box-shadow: 0 0 0 1px var(--ink); }
+  .route .name { font-weight: 600; overflow-wrap: anywhere; }
+  .route .title { color: var(--muted); font-size: 12px; }
+  .badges { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+  .badge { font-size: 11px; padding: 1px 7px; border-radius: 999px; background: var(--chip); color: var(--muted); }
+  .badge.good { background: var(--good-bg); color: var(--good); }
+  .badge.bad { background: var(--bad-bg); color: var(--bad); }
+  .badge.warn { background: var(--warn-bg); color: var(--warn); }
+  .event { font-size: 12px; color: var(--muted); margin-top: 6px; overflow-wrap: anywhere; }
+  .event.bad { color: var(--bad); }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+  .head { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: baseline; }
+  .head h2 { margin: 0; font-size: 20px; overflow-wrap: anywhere; }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }
+  .muted { color: var(--muted); }
+  .sums { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 6px; font-size: 13px; }
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
+  .msg { margin-top: 12px; padding: 10px 12px; border-radius: 8px; overflow-wrap: anywhere; }
+  .msg.bad { background: var(--bad-bg); color: var(--bad); }
+  .msg.warn { background: var(--warn-bg); color: var(--warn); }
+  .msg .mono { font-size: 13px; }
+  .msg .btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .body { margin-top: 4px; }
+  .body.editing { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+  @media (max-width: 1100px) { .body.editing { grid-template-columns: minmax(0, 1fr); } }
+  .tabs { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; margin: 14px 0 10px; }
+  .tabs button { border: 0; border-radius: 0; padding: 5px 14px; }
+  .tabs button.on.RED { background: var(--red); color: #fff; }
+  .tabs button.on.BLUE { background: var(--blue); color: #fff; }
+  .maplabel { font-size: 12px; color: var(--muted); margin-left: 10px; }
+  .map { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(240px, 1fr); gap: 16px; align-items: start; }
+  .map.stack { grid-template-columns: minmax(0, 1fr); }
+  @media (max-width: 1100px) { .map { grid-template-columns: minmax(0, 1fr); } }
+  .map.dim { opacity: .45; }
+  .field { background: #fff; border-radius: 8px; border: 1px solid var(--line); padding: 6px; }
+  .field svg { display: block; width: 100%; height: auto; }
+  .field.flash { animation: flash .6s ease-out; }
+  @keyframes flash { from { box-shadow: 0 0 0 3px var(--good); } to { box-shadow: 0 0 0 0 transparent; } }
+  .side h3 { font-size: 11px; letter-spacing: .06em; color: var(--muted); margin: 16px 0 6px; padding-bottom: 4px; border-bottom: 1px solid var(--line); }
+  .side h3:first-child { margin-top: 0; }
+  .big { font-size: 30px; font-weight: 700; }
+  .score { display: grid; grid-template-columns: 1fr auto; font-size: 13px; margin-top: 6px; }
+  .score .why { grid-column: 1 / -1; color: var(--muted); font-size: 12px; }
+  .bar { height: 5px; background: var(--line); border-radius: 3px; margin-top: 6px; overflow: hidden; }
+  .bar > div { height: 100%; }
+  .problem { color: var(--bad); font-size: 13px; margin: 4px 0; }
+  .ok { color: var(--good); font-size: 13px; font-weight: 600; }
+  .row { display: grid; grid-template-columns: auto 1fr auto; gap: 6px; align-items: baseline; font-size: 13px; margin: 3px 0; }
+  .num { display: inline-block; min-width: 18px; height: 18px; border-radius: 9px; color: #fff; font-size: 11px; font-weight: 700; text-align: center; line-height: 18px; }
+  .row .time { color: var(--muted); font-size: 12px; }
+  .row.group .text { font-weight: 600; }
+  .wp { display: grid; grid-template-columns: 1fr auto; font-size: 13px; margin: 2px 0; }
+  .empty { color: var(--muted); padding: 30px 0; text-align: center; }
+
+  /* editor: a transparent textarea over a highlighted copy of its text */
+  .edbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 14px 0 8px; }
+  .edstatus { font-size: 13px; color: var(--muted); }
+  .edstatus.good { color: var(--good); }
+  .edstatus.bad { color: var(--bad); }
+  .editor { display: grid; grid-template-columns: auto minmax(0, 1fr); height: 64vh; min-height: 320px; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--panel); }
+  .editor:focus-within { border-color: var(--muted); }
+  .editor pre, .editor textarea { font: 13px/19px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-variant-ligatures: none; tab-size: 2; letter-spacing: 0; margin: 0; }
+  .gutter { overflow: hidden; background: var(--chip); color: var(--muted); text-align: right; user-select: none; }
+  .gutter pre { padding: 8px 8px 8px 12px; }
+  .code { position: relative; overflow: hidden; }
+  .code pre { position: absolute; inset: 0; padding: 8px; white-space: pre; overflow: hidden; pointer-events: none; color: var(--ink); }
+  .code pre code { display: block; font: inherit; }
+  .code textarea { position: absolute; inset: 0; width: 100%; height: 100%; padding: 8px; border: 0; outline: 0; resize: none; white-space: pre; overflow: auto; background: transparent; color: transparent; caret-color: var(--ink); }
+  .code textarea::selection { background: var(--select); color: transparent; }
+  .errband { position: absolute; left: 0; right: 0; height: 19px; background: var(--bad-bg); pointer-events: none; }
+  .tk-key { color: var(--tk-key); }
+  .tk-kind { color: var(--tk-kind); font-weight: 600; }
+  .tk-str { color: var(--tk-str); }
+  .tk-num { color: var(--tk-num); }
+  .tk-kw { color: var(--tk-kw); }
+  .tk-p { color: var(--tk-punct); }
+  details.ref { margin-top: 10px; font-size: 13px; }
+  details.ref summary { cursor: pointer; color: var(--muted); }
+  details.ref table { border-collapse: collapse; margin-top: 6px; width: 100%; }
+  details.ref td { padding: 3px 8px 3px 0; vertical-align: top; border-top: 1px solid var(--line); }
+  details.ref td:first-child { white-space: nowrap; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Route View</h1>
+  <span class="pill" id="hub"><span class="dot"></span><span>hub</span></span>
+  <button id="connect" hidden>Connect</button>
+  <label class="toggle"><input type="checkbox" id="autopush"> push on save</label>
+  <span class="spacer"></span>
+  <button id="pushAll" title="Push every valid route whose hub copy differs">Push all</button>
+  <button id="refresh" title="Read the hub's copies again">Re-read hub</button>
+</header>
+<div class="notice bad" id="offline" hidden>Route View isn't running. Start it again with <span class="mono">./gradlew -p tools/routeview run</span>; this page reconnects by itself.</div>
+<div class="notice" id="hubHelp" hidden></div>
+<main>
+  <nav class="routes" id="routes"></nav>
+  <section id="detail"><div class="empty">Loading…</div></section>
+</main>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const el = (tag, cls, text) => {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text !== undefined && text !== null) e.textContent = text;
+  return e;
+};
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const enc = encodeURIComponent;
+const clock = (ms) => new Date(ms).toLocaleTimeString();
+const store = {
+  get(k) { try { return localStorage.getItem("routeview." + k); } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem("routeview." + k, v); } catch (e) { /* private window */ } },
+};
+
+const LINE = 19; // px, matches .editor line-height
+const PAD = 8;   // px, matches .code padding
+
+let state = null;
+let selected = decodeURIComponent(location.hash.slice(1)) || null;
+let alliance = store.get("alliance") || "RED";
+let editing = store.get("editing") === "1";
+let detail = null;        // the last /api/route answer (saved file), or null
+let detailKey = null;     // what it was fetched for
+let shownChecksum = null; // the saved map last drawn, to flash it when a save changes it
+let view = null;          // DOM of the route shown: { key, head, sums, body, mapPane, editor? }
+
+/** The editor's file and draft. base = checksum of the disk version the draft started from. */
+const ed = {
+  name: null, base: null, saved: "", draft: null, loading: false, saving: false,
+  check: null, checkedText: null, lastGood: null, seq: 0, timer: null,
+  conflict: null, ignore: null, note: null, noteBad: false, errorAt: null,
+};
+
+const SYNC = {
+  same: ["on hub ✓", "good"],
+  differs: ["hub has a different version", "warn"],
+  missing: ["not on hub: robot runs the APK copy", ""],
+  hubOnly: ["only on the hub", "warn"],
+  unknown: ["hub ?", ""],
+};
+
+function post(path) {
+  return fetch(path, { method: "POST" }).catch(() => {});
+}
+
+function route(name) {
+  return state ? state.routes.find((r) => r.name === name) : null;
+}
+
+function dirty() {
+  return !!(view && view.editor && ed.name && view.editor.ta.value !== ed.saved);
+}
+
+function mayLeave() {
+  return !dirty() || confirm("Discard your unsaved changes to " + ed.name + ".json?");
+}
+
+// ---- state: long poll -----------------------------------------------------------------------
+
+async function loop() {
+  let since = 0;
+  for (;;) {
+    try {
+      const r = await fetch("/api/state?since=" + since);
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      state = await r.json();
+      since = state.version;
+      $("offline").hidden = true;
+      renderState();
+      await refreshDetail();
+      watchDisk();
+    } catch (e) {
+      $("offline").hidden = false;
+      await sleep(2000);
+    }
+  }
+}
+
+function renderState() {
+  const hub = state.hub;
+  $("hub").replaceChildren(el("span", "dot" + (hub.online ? " on" : "")),
+    el("span", null, (hub.online ? "hub " : hub.wanted ? "hub not connected · " : "hub disconnected · ") + hub.serial));
+  $("hub").title = hub.message || "";
+  const connect = $("connect");
+  connect.hidden = !hub.adb;
+  connect.disabled = hub.connecting;
+  connect.textContent = hub.connecting ? "Connecting…" : hub.online ? "Disconnect" : "Connect";
+  connect.title = hub.online ? "adb disconnect " + hub.serial + ", and stop reconnecting until Connect"
+    : "adb connect " + hub.serial + " now";
+  connect.onclick = () => post(hub.online ? "/api/disconnect" : "/api/connect");
+  const help = $("hubHelp");
+  help.hidden = hub.online;
+  help.textContent = !hub.adb ? hub.message
+    : !hub.wanted ? "Disconnected from the hub. Saves wait until you click Connect."
+    : "Not connected to the hub. Join the robot's Wi-Fi, then click Connect (Route View also retries every 2 s). "
+      + "Saves made meanwhile are pushed when it connects. Last adb reply: " + hub.message;
+  $("autopush").checked = state.autoPush;
+  $("pushAll").disabled = !hub.online;
+  $("refresh").disabled = !hub.online;
+
+  if (!selected || !route(selected)) {
+    selected = state.routes.length ? state.routes[0].name : null;
+  }
+  const list = $("routes");
+  list.replaceChildren();
+  if (!state.routes.length) list.append(el("div", "empty", "No route files in TeamCode/src/main/assets/autos."));
+  for (const r of state.routes) {
+    const b = el("button", "route" + (r.name === selected ? " sel" : ""));
+    b.append(el("div", "name", r.name + ".json"));
+    if (r.title) b.append(el("div", "title", r.title));
+    const badges = el("div", "badges");
+    if (r.present) {
+      if (!r.valid) badges.append(el("span", "badge bad", "invalid"));
+      else if (r.warnings) badges.append(el("span", "badge warn", r.warnings + (r.warnings === 1 ? " warning" : " warnings")));
+      else badges.append(el("span", "badge good", "valid"));
+    }
+    const [text, cls] = SYNC[r.sync] || [r.sync, ""];
+    badges.append(el("span", "badge " + cls, text));
+    if (r.pending) badges.append(el("span", "badge warn", "push waiting for hub"));
+    if (r.name === ed.name && dirty()) badges.append(el("span", "badge warn", "unsaved edits"));
+    b.append(badges);
+    if (r.event) b.append(el("div", "event" + (r.eventOk ? "" : " bad"), clock(r.eventAt) + " · " + r.event));
+    b.onclick = () => select(r.name);
+    list.append(b);
+  }
+}
+
+function select(name) {
+  if (name === selected || !mayLeave()) return;
+  selected = name;
+  location.hash = enc(name);
+  renderState();
+  refreshDetail();
+}
+
+// ---- one route: layout ------------------------------------------------------------------------
+
+async function refreshDetail() {
+  const r = route(selected);
+  const key = r ? [r.name, r.present, r.checksum, r.valid, r.warnings, r.error].join("|") : null;
+  if (key !== detailKey) {
+    detail = null;
+    if (r && r.present) {
+      const res = await fetch("/api/route?name=" + enc(r.name));
+      detail = res.ok ? await res.json() : null;
+    }
+    detailKey = key;
+  }
+  renderDetail();
+}
+
+function renderDetail() {
+  const r = route(selected);
+  const key = r ? r.name + "|" + (editing && r.present ? "edit" : "view") : "";
+  if (!view || view.key !== key) build(key, r);
+  if (!r) return;
+  renderHead(r);
+  renderSums(r);
+  renderMap(r);
+  if (view.editor) renderEditor();
+}
+
+/** The parts that persist while a route is shown (the editor must, or typing loses its place). */
+function build(key, r) {
+  const box = $("detail");
+  box.replaceChildren();
+  view = { key };
+  if (!r) {
+    box.append(el("div", "empty", "No route selected."));
+    return;
+  }
+  const card = el("div", "card");
+  view.head = el("div", "head");
+  view.sums = el("div", "sums");
+  view.body = el("div", "body");
+  view.mapPane = el("div");
+  card.append(view.head, view.sums, view.body);
+  box.append(card);
+  if (editing && r.present) {
+    view.body.classList.add("editing");
+    view.body.append(buildEditor(), view.mapPane);
+    if (ed.name !== r.name) {
+      ed.name = r.name;
+      ed.lastGood = null;
+      loadSource(r.name, false);
+    } else {
+      view.editor.ta.value = ed.draft !== null ? ed.draft : ed.saved; // same file, rebuilt
+      paint();
+      runCheck();
+    }
+  } else {
+    view.body.append(view.mapPane);
+  }
+}
+
+function renderHead(r) {
+  const head = view.head;
+  head.replaceChildren(el("h2", null, r.name + ".json"));
+  if (r.title) head.append(el("span", "muted", "“" + r.title + "”"));
+  const actions = el("div", "actions");
+  if (r.present) {
+    const edit = el("button", null, editing ? "Done editing" : "Edit");
+    edit.onclick = () => {
+      if (editing && !mayLeave()) return;
+      editing = !editing;
+      store.set("editing", editing ? "1" : "0");
+      if (!editing) { ed.name = null; ed.draft = null; }
+      renderDetail();
+    };
+    actions.append(edit);
+  }
+  const hubOnline = state.hub.online;
+  const push = el("button", null, "Push to hub");
+  push.disabled = !hubOnline || !r.present || !r.valid || r.sync === "same";
+  push.onclick = () => post("/api/push?name=" + enc(r.name));
+  const remove = el("button", null, "Remove from hub");
+  remove.disabled = !hubOnline || !(r.sync === "same" || r.sync === "differs" || r.sync === "hubOnly");
+  remove.onclick = () => {
+    if (confirm("Delete /sdcard/FIRST/autos/" + r.name + ".json from the hub? The robot will run the copy built into the APK.")) {
+      post("/api/remove?name=" + enc(r.name));
+    }
+  };
+  actions.append(push, remove);
+  head.append(actions);
+}
+
+function renderSums(r) {
+  const sums = view.sums;
+  sums.replaceChildren();
+  if (r.present) sums.append(labelled("laptop", "#" + r.checksum, "TeamCode/src/main/assets/autos/" + r.name + ".json"));
+  sums.append(labelled("hub", r.hubChecksum ? "#" + r.hubChecksum : (r.sync === "unknown" ? "?" : "none (APK copy)"),
+    "The Driver Station shows the loaded file's checksum at INIT"));
+  if (r.event) sums.append(el("span", r.eventOk ? "muted" : "event bad", clock(r.eventAt) + " · " + r.event));
+}
+
+function labelled(label, value, title) {
+  const s = el("span");
+  s.title = title || "";
+  s.append(el("span", "muted", label + " "), el("span", "mono", value));
+  return s;
+}
+
+// ---- one route: map ---------------------------------------------------------------------------
+
+function renderMap(r) {
+  const pane = view.mapPane;
+  pane.replaceChildren();
+  if (!r.present) {
+    pane.append(el("div", "msg warn", "This route is on the hub but not in TeamCode/src/main/assets/autos on this laptop. "
+      + "The robot runs it for any OpMode whose routeName() is \"" + r.name + "\"."));
+    return;
+  }
+  if (view.editor) {
+    const fresh = ed.check && ed.check.valid && ed.checkedText === view.editor.ta.value;
+    const shown = fresh ? ed.check : ed.lastGood;
+    if (!shown) {
+      pane.append(el("div", "empty", ed.loading ? "Loading…" : "The map appears once the route is valid."));
+      return;
+    }
+    const label = !fresh ? "last valid version (the editor has an error)" : dirty() ? "preview of unsaved changes" : "saved version";
+    pane.append(mapView(shown, label, !fresh, true, false));
+    return;
+  }
+  if (!detail) {
+    pane.append(el("div", "empty", "Loading…"));
+    return;
+  }
+  if (!detail.valid) {
+    const m = el("div", "msg bad");
+    m.append(el("div", null, "The robot would refuse this file at INIT, so it isn't pushed:"), el("div", "mono", tidy(detail.error)));
+    pane.append(m);
+    return;
+  }
+  for (const w of detail.warnings) pane.append(el("div", "msg warn", w));
+  pane.append(mapView(detail, "map of #" + detail.checksum, false, false, true));
+}
+
+function mapView(result, label, dim, stack, flashable) {
+  const wrap = el("div");
+  const top = el("div");
+  const tabs = el("div", "tabs");
+  for (const a of ["RED", "BLUE"]) {
+    const t = el("button", a + (a === alliance ? " on" : ""), a === "RED" ? "Red" : "Blue");
+    t.onclick = () => { alliance = a; store.set("alliance", a); renderDetail(); };
+    tabs.append(t);
+  }
+  top.append(tabs, el("span", "maplabel", label));
+  const rep = alliance === "RED" ? result.red : result.blue;
+  const map = el("div", "map" + (stack ? " stack" : "") + (dim ? " dim" : ""));
+  const field = el("div", "field");
+  field.innerHTML = rep.svg; // drawn by Route View from the route file; its text is escaped
+  if (flashable) {
+    if (shownChecksum !== null && shownChecksum !== result.checksum) field.classList.add("flash");
+    shownChecksum = result.checksum;
+  }
+  map.append(field, side(rep));
+  wrap.append(top, map);
+  return wrap;
+}
+
+function side(rep) {
+  const color = rep.alliance === "RED" ? "var(--red)" : "var(--blue)";
+  const s = el("div", "side");
+
+  s.append(el("h3", null, "ESTIMATED POINTS"));
+  const pts = el("div");
+  pts.append(el("span", "big", String(rep.points)), el("span", "muted", " points"));
+  s.append(pts);
+  for (const sc of rep.scores) {
+    const d = el("div", "score");
+    d.append(el("strong", null, sc.label), el("strong", sc.earned ? "ok" : "muted", sc.earned ? "+" + sc.points : "0"),
+      el("span", "why", sc.reason));
+    s.append(d);
+  }
+
+  s.append(el("h3", null, "ESTIMATED TIME"));
+  const over = rep.seconds > rep.autoSeconds;
+  s.append(el("div", over ? "problem" : null, rep.secondsText + (rep.timeUnknown ? " + unknown" : "") + " of " + rep.autoSeconds + " s"));
+  const bar = el("div", "bar");
+  const fill = el("div");
+  fill.style.width = Math.min(100, 100 * rep.seconds / rep.autoSeconds) + "%";
+  fill.style.background = over ? "var(--bad)" : color;
+  bar.append(fill);
+  s.append(bar);
+
+  s.append(el("h3", null, "CHECKS"));
+  if (!rep.problems.length) s.append(el("div", "ok", "No problems found."));
+  for (const p of rep.problems) s.append(el("div", "problem", "• " + p));
+
+  s.append(el("h3", null, "ROUTINE"));
+  for (const row of rep.rows) {
+    const d = el("div", "row" + (row.number ? "" : " group"));
+    d.style.paddingLeft = (row.depth * 14) + "px";
+    const n = el("span", row.number ? "num" : null, row.number ? String(row.number) : "");
+    if (row.number) n.style.background = color;
+    d.append(n, el("span", "text", row.text), el("span", "time", row.time));
+    s.append(d);
+  }
+
+  s.append(el("h3", null, "WAYPOINTS, " + rep.alliance + " FRAME (x, y, heading)"));
+  for (const w of rep.waypoints) {
+    const d = el("div", "wp");
+    d.append(el("strong", null, w.name + (w.control ? " (control)" : "")),
+      el("span", "mono", w.x.toFixed(1) + ", " + w.y.toFixed(1) + ", " + Math.round(w.headingDeg) + "°"));
+    s.append(d);
+  }
+  return s;
+}
+
+// ---- editor -------------------------------------------------------------------------------------
+
+const KINDS = new Set(["sequence", "parallel", "race", "follow", "wait", "waitUntil", "action", "hold"]);
+
+const SNIPPETS = {
+  "step: follow line": (w) => `{ "follow": { "line": ["${w[0]}", "${w[1]}"] } }`,
+  "step: follow curve": (w) => `{ "follow": { "curve": ["${w[0]}", "${w[1]}", "${w[2]}"] } }`,
+  "step: follow through": (w) => `{ "follow": { "through": ["${w[0]}", "${w[1]}", "${w[2]}"] } }`,
+  "step: wait": () => `{ "wait": 0.5 }`,
+  "step: waitUntil": () => `{ "waitUntil": "intake.full" }`,
+  "step: action": () => `{ "action": "shooter.fire", "args": { "count": 3 } }`,
+  "step: hold": (w) => `{ "hold": "${w[w.length - 1]}", "timeout": 2 }`,
+  "step: sequence": () => `{ "sequence": [ ] }`,
+  "step: parallel": () => `{ "parallel": [ ] }`,
+  "step: race": () => `{ "race": [ ] }`,
+  "waypoint": () => `"NEW": [72, 72, 0]`,
+  "heading: tangent": () => `"heading": "tangent"`,
+  "heading: facing": (w) => `"heading": { "facing": "${w[w.length - 1]}" }`,
+  "modifiers: name + timeout": () => `"name": "describe it", "timeout": 3`,
+};
+
+const REFERENCE = [
+  ["{ \"sequence\": [ … ] }", "one after another (the top-level routine is a sequence)"],
+  ["{ \"parallel\": [ … ] }", "together; done when all are done"],
+  ["{ \"race\": [ … ] }", "together; done when the first is, others interrupted"],
+  ["{ \"follow\": { \"line\": [\"A\",\"B\"] } }", "straight line"],
+  ["{ \"follow\": { \"curve\": [\"A\",\"C1\",\"B\"] } }", "Bezier; middle names are control points"],
+  ["{ \"follow\": { \"through\": [\"A\",\"B\",\"C\"] } }", "smooth curve through every point"],
+  ["\"heading\": …", "\"tangent\" · \"reverseTangent\" · { \"constant\": 90 } · { \"linear\": [0, 90] } · { \"facing\": \"HIVE\" }"],
+  ["{ \"wait\": 0.5 }", "seconds"],
+  ["{ \"waitUntil\": \"intake.full\" }", "a condition an OpMode registers"],
+  ["{ \"action\": \"shooter.fire\", \"args\": { … } }", "an action an OpMode registers"],
+  ["{ \"hold\": \"PARK\", \"timeout\": 2 }", "hold a pose (timeout required)"],
+  ["\"name\", \"timeout\"", "on any step: Driver Station label; seconds before it's interrupted"],
+  ["waypoints", "\"NAME\": [x, y, headingDeg], inches and degrees, RED frame"],
+];
+
+function buildEditor() {
+  const pane = el("div");
+  const bar = el("div", "edbar");
+  const save = el("button", "primary", "Save");
+  save.title = "Save (⌘S / Ctrl+S). Only a file the robot would accept can be saved.";
+  save.onclick = () => saveDraft(false);
+  const insert = el("select");
+  insert.title = "Insert at the cursor";
+  insert.append(new Option("Insert…", ""));
+  for (const k of Object.keys(SNIPPETS)) insert.append(new Option(k, k));
+  insert.onchange = () => {
+    if (insert.value) insertText(SNIPPETS[insert.value](waypointNames()));
+    insert.value = "";
+  };
+  const status = el("span", "edstatus");
+  bar.append(save, insert, status);
+
+  const box = el("div", "editor");
+  const gutter = el("div", "gutter");
+  const lines = el("pre");
+  gutter.append(lines);
+  const code = el("div", "code");
+  const band = el("div", "errband");
+  band.hidden = true;
+  const hl = el("pre");
+  const hlCode = el("code");
+  hl.append(hlCode);
+  const ta = el("textarea");
+  ta.spellcheck = false;
+  ta.setAttribute("wrap", "off");
+  ta.setAttribute("autocapitalize", "off");
+  ta.setAttribute("autocomplete", "off");
+  ta.setAttribute("aria-label", "Route file");
+  code.append(band, hl, ta);
+  box.append(gutter, code);
+
+  const problem = el("div");
+  const ref = el("details", "ref");
+  ref.append(el("summary", null, "Route file reference"));
+  const table = el("table");
+  for (const [syntax, meaning] of REFERENCE) {
+    const tr = el("tr");
+    tr.append(el("td", "mono", syntax), el("td", null, meaning));
+    table.append(tr);
+  }
+  ref.append(table);
+  pane.append(bar, box, problem, ref);
+
+  ta.addEventListener("input", () => { ed.draft = ta.value; paint(); scheduleCheck(); renderEditor(); });
+  ta.addEventListener("scroll", syncScroll);
+  ta.addEventListener("keydown", onKey);
+  view.editor = { save, status, lines, hlCode, ta, band, problem };
+  return pane;
+}
+
+async function loadSource(name, keepPlace) {
+  ed.loading = true;
+  ed.seq++;
+  if (view.editor) renderEditor();
+  let src = null;
+  try {
+    const res = await fetch("/api/source?name=" + enc(name));
+    src = res.ok ? await res.json() : null;
+  } catch (e) { /* offline banner */ }
+  ed.loading = false;
+  if (!view.editor || ed.name !== name) return; // moved on meanwhile
+  if (!src) {
+    ed.note = "Couldn't load " + name + ".json.";
+    ed.noteBad = true;
+    renderEditor();
+    return;
+  }
+  const ta = view.editor.ta;
+  const place = [ta.selectionStart, ta.selectionEnd, ta.scrollTop, ta.scrollLeft];
+  ta.value = src.text;
+  ed.saved = ta.value; // the browser's newline-normalized copy
+  ed.draft = ta.value;
+  ed.base = src.checksum;
+  ed.conflict = null;
+  ed.ignore = null;
+  ed.check = null;
+  if (keepPlace) {
+    ta.setSelectionRange(Math.min(place[0], ta.value.length), Math.min(place[1], ta.value.length));
+    ta.scrollTop = place[2];
+    ta.scrollLeft = place[3];
+  }
+  paint();
+  runCheck();
+}
+
+/** Follows the file when it changes on disk: reloads if there are no local edits, else says so. */
+function watchDisk() {
+  const r = route(selected);
+  if (!view || !view.editor || !r || !r.present || ed.name !== r.name || ed.loading || ed.saving || !ed.base) return;
+  if (r.checksum === ed.base) {
+    ed.ignore = null;
+    if (ed.conflict) { ed.conflict = null; renderEditor(); }
+    return;
+  }
+  if (r.checksum === ed.ignore) return; // the watcher hasn't seen our own save yet
+  if (!dirty()) {
+    loadSource(r.name, true);
+  } else if (ed.conflict !== r.checksum) {
+    ed.conflict = r.checksum;
+    renderEditor();
+  }
+}
+
+function scheduleCheck() {
+  clearTimeout(ed.timer);
+  ed.timer = setTimeout(runCheck, 200);
+}
+
+/** Checks the editor's text with the robot's own parser and compiler, on the server. */
+async function runCheck() {
+  if (!view.editor) return;
+  clearTimeout(ed.timer);
+  const text = view.editor.ta.value;
+  const seq = ++ed.seq;
+  let result;
+  try {
+    const res = await fetch("/api/check", { method: "POST", body: text });
+    result = await res.json();
+  } catch (e) {
+    return;
+  }
+  if (seq !== ed.seq || !view.editor) return; // a newer edit is being checked
+  ed.check = result;
+  ed.checkedText = text;
+  if (result.valid) ed.lastGood = result;
+  renderEditor();
+  const r = route(selected);
+  if (r) renderMap(r);
+}
+
+async function saveDraft(overwrite) {
+  if (!view.editor || ed.loading || ed.saving) return;
+  const text = view.editor.ta.value;
+  if (!(ed.check && ed.checkedText === text)) await runCheck();
+  if (!(ed.check && ed.checkedText === text && ed.check.valid)) {
+    ed.note = "Not saved: the robot would reject this file. Fix the highlighted error first.";
+    ed.noteBad = true;
+    renderEditor();
+    return;
+  }
+  if (text === ed.saved && !overwrite) {
+    ed.note = "No changes to save.";
+    ed.noteBad = false;
+    renderEditor();
+    return;
+  }
+  ed.saving = true;
+  renderEditor();
+  try {
+    const res = await fetch("/api/save?name=" + enc(ed.name) + "&base=" + enc(ed.base || "") + (overwrite ? "&force=true" : ""),
+      { method: "POST", body: text });
+    const body = await res.json();
+    if (res.ok) {
+      ed.ignore = ed.base;
+      ed.base = body.checksum;
+      ed.saved = text;
+      ed.conflict = null;
+      ed.note = "Saved " + clock(Date.now()) + " · #" + body.checksum;
+      ed.noteBad = false;
+    } else if (res.status === 409) {
+      ed.conflict = body.checksum;
+      ed.note = null;
+    } else {
+      ed.note = "Not saved: " + tidy(body.error);
+      ed.noteBad = true;
+    }
+  } catch (e) {
+    ed.note = "Not saved: Route View isn't reachable.";
+    ed.noteBad = true;
+  }
+  ed.saving = false;
+  renderEditor();
+  renderState();
+  watchDisk();
+}
+
+function renderEditor() {
+  const e = view.editor;
+  const text = e.ta.value;
+  const checked = ed.check && ed.checkedText === text;
+  const isDirty = dirty();
+  e.save.disabled = ed.loading || ed.saving || !isDirty || !(checked && ed.check.valid);
+
+  let status, cls = "";
+  if (ed.loading) status = "Loading…";
+  else if (ed.saving) status = "Saving…";
+  else if (!checked) status = "Checking…";
+  else if (!ed.check.valid) { status = "✗ The robot would reject this file"; cls = "bad"; }
+  else {
+    const w = ed.check.warnings.length;
+    status = "✓ Valid" + (w ? ", " + w + (w === 1 ? " warning" : " warnings") : "") + (isDirty ? " · unsaved changes" : "");
+    cls = "good";
+  }
+  e.status.textContent = status;
+  e.status.className = "edstatus " + cls;
+
+  const p = e.problem;
+  p.replaceChildren();
+  ed.errorAt = null;
+  if (ed.conflict) {
+    const m = el("div", "msg warn");
+    m.append(el("div", null, ed.name + ".json changed on disk (another editor?) since you started editing it."));
+    const btns = el("div", "btns");
+    const reload = el("button", null, "Load the version on disk");
+    reload.onclick = () => loadSource(ed.name, true);
+    const keep = el("button", null, "Keep mine and save it");
+    keep.onclick = () => saveDraft(true);
+    btns.append(reload, keep);
+    m.append(btns);
+    p.append(m);
+  }
+  if (checked && !ed.check.valid) {
+    ed.errorAt = errorLocation(text, ed.check.error);
+    const m = el("div", "msg bad");
+    if (ed.errorAt !== null) {
+      const line = lineOf(text, ed.errorAt);
+      const go = el("button", "link", "Line " + line);
+      go.onclick = () => jump(ed.errorAt);
+      m.append(go, document.createTextNode(": "));
+    }
+    m.append(el("span", "mono", tidy(ed.check.error)));
+    p.append(m);
+  }
+  if (checked && ed.check.valid) {
+    for (const w of ed.check.warnings) p.append(el("div", "msg warn", w));
+  }
+  if (ed.note) p.append(el("div", "msg " + (ed.noteBad ? "bad" : "muted"), ed.note));
+  placeBand();
+}
+
+function paint() {
+  const e = view.editor;
+  const text = e.ta.value;
+  e.hlCode.innerHTML = highlight(text) + "\n";
+  const n = text.split("\n").length;
+  let numbers = "";
+  for (let i = 1; i <= n; i++) numbers += i + (i < n ? "\n" : "");
+  e.lines.textContent = numbers;
+  ed.note = null;
+  syncScroll();
+}
+
+function syncScroll() {
+  const e = view.editor;
+  e.hlCode.style.transform = `translate(${-e.ta.scrollLeft}px, ${-e.ta.scrollTop}px)`;
+  e.lines.style.transform = `translateY(${-e.ta.scrollTop}px)`;
+  placeBand();
+}
+
+function placeBand() {
+  const e = view.editor;
+  if (ed.errorAt === null) {
+    e.band.hidden = true;
+    return;
+  }
+  e.band.hidden = false;
+  e.band.style.top = (PAD + (lineOf(e.ta.value, ed.errorAt) - 1) * LINE - e.ta.scrollTop) + "px";
+}
+
+function jump(offset) {
+  const ta = view.editor.ta;
+  ta.focus();
+  ta.setSelectionRange(offset, offset);
+  ta.scrollTop = Math.max(0, (lineOf(ta.value, offset) - 4) * LINE);
+  syncScroll();
+}
+
+function onKey(event) {
+  const ta = event.target;
+  if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
+    event.preventDefault();
+    saveDraft(false);
+  } else if (event.key === "Escape") {
+    ta.blur(); // Tab indents, so Esc is the way out of the editor by keyboard
+  } else if (event.key === "Tab" && !event.shiftKey) {
+    event.preventDefault();
+    insertText("  ");
+  } else if (event.key === "Enter" && !event.isComposing) {
+    // Keep the line's indent, one level deeper after an opening bracket.
+    event.preventDefault();
+    const before = ta.value.slice(0, ta.selectionStart);
+    const lineText = before.slice(before.lastIndexOf("\n") + 1);
+    const indent = /^[ \t]*/.exec(lineText)[0];
+    const last = before.trimEnd().slice(-1);
+    insertText("\n" + indent + (last === "{" || last === "[" ? "  " : ""));
+  }
+}
+
+function insertText(text) {
+  const ta = view.editor.ta;
+  ta.focus();
+  // execCommand keeps the browser's undo history; setRangeText is the fallback.
+  if (!document.execCommand("insertText", false, text)) {
+    ta.setRangeText(text, ta.selectionStart, ta.selectionEnd, "end");
+    ta.dispatchEvent(new Event("input"));
+  }
+}
+
+function waypointNames() {
+  try {
+    const names = Object.keys(JSON.parse(view.editor.ta.value).waypoints || {});
+    if (names.length) return [names[0], names[1] || names[0], names[2] || names[names.length - 1]];
+  } catch (e) { /* mid-edit */ }
+  return ["A", "B", "C"];
+}
+
+// ---- JSON helpers -------------------------------------------------------------------------------
+
+const ESC = { "&": "&amp;", "<": "&lt;", ">": "&gt;" };
+const esc = (s) => s.replace(/[&<>]/g, (c) => ESC[c]);
+const TOKEN = /("(?:[^"\\\n]|\\.)*"?)(\s*:)?|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)|\b(true|false|null)\b|([{}[\],])/g;
+
+function highlight(text) {
+  let out = "", at = 0, m;
+  TOKEN.lastIndex = 0;
+  while ((m = TOKEN.exec(text))) {
+    out += esc(text.slice(at, m.index));
+    if (m[1] !== undefined) {
+      const cls = !m[2] ? "tk-str" : KINDS.has(m[1].slice(1, -1)) ? "tk-kind" : "tk-key";
+      out += `<span class="${cls}">${esc(m[1])}</span>` + (m[2] ? `<span class="tk-p">${esc(m[2])}</span>` : "");
+    } else if (m[3] !== undefined) {
+      out += `<span class="tk-num">${m[3]}</span>`;
+    } else if (m[4] !== undefined) {
+      out += `<span class="tk-kw">${m[4]}</span>`;
+    } else {
+      out += `<span class="tk-p">${esc(m[5])}</span>`;
+    }
+    at = TOKEN.lastIndex;
+  }
+  return out + esc(text.slice(at));
+}
+
+/** Gson's exception class names are noise in the message. */
+function tidy(error) {
+  return (error || "").replace(/\b(?:[a-z]+\.)+[A-Z]\w*(?:Exception|Error): /g, "");
+}
+
+function lineOf(text, offset) {
+  let line = 1;
+  for (let i = 0; i < offset && i < text.length; i++) if (text[i] === "\n") line++;
+  return line;
+}
+
+/**
+ * Where in the text an error from the robot's parser points. Syntax errors give a line and column;
+ * the others start with a path like routine[2].follow.line[1] or waypoints.PARK.
+ */
+function errorLocation(text, error) {
+  let m = /line (\d+) column (\d+)/.exec(error);
+  if (m && error.startsWith("route: invalid JSON")) {
+    const lines = text.split("\n");
+    const line = Math.min(+m[1], lines.length);
+    let offset = 0;
+    for (let i = 0; i < line - 1; i++) offset += lines[i].length + 1;
+    return offset + Math.min(Math.max(+m[2] - 1, 0), lines[line - 1].length);
+  }
+  const places = locate(text);
+  if (!places) return null;
+  m = /^((?:routine|waypoints)(?:\[\d+\]|\.[^.[:\s]+)*):/.exec(error);
+  if (m) {
+    let path = m[1];
+    while (path && !places.has(path)) path = path.replace(/(\[\d+\]|\.[^.[]+)$/, "");
+    return path ? places.get(path) : null;
+  }
+  m = /^route: unknown key "([^"]+)"/.exec(error);
+  if (m) return places.has(m[1] + "#key") ? places.get(m[1] + "#key") : null;
+  for (const key of ["start", "waypoints", "routine"]) {
+    if (error.includes("\"" + key + "\"") || error.startsWith("route: " + key)) {
+      return places.has(key) ? places.get(key) : places.has(key + "#key") ? places.get(key + "#key") : null;
+    }
+  }
+  return null;
+}
+
+/** Offsets of every value (and key, as path#key) in a JSON text, by the parser's path names. */
+function locate(text) {
+  const places = new Map();
+  let i = 0;
+  const ws = () => { while (i < text.length && /\s/.test(text[i])) i++; };
+  const expect = (c) => { ws(); if (text[i] !== c) throw new Error("expected " + c); i++; };
+  const str = () => {
+    const start = i;
+    if (text[i] !== "\"") throw new Error("expected a string");
+    i++;
+    while (i < text.length && text[i] !== "\"") i += text[i] === "\\" ? 2 : 1;
+    i++;
+    return JSON.parse(text.slice(start, i));
+  };
+  const value = (path) => {
+    ws();
+    places.set(path, i);
+    if (text[i] === "{") {
+      i++;
+      ws();
+      if (text[i] === "}") { i++; return; }
+      for (;;) {
+        ws();
+        const keyAt = i;
+        const key = str();
+        const child = path ? path + "." + key : key;
+        places.set(child + "#key", keyAt);
+        expect(":");
+        value(child);
+        ws();
+        if (text[i] === ",") { i++; continue; }
+        expect("}");
+        return;
+      }
+    } else if (text[i] === "[") {
+      i++;
+      ws();
+      if (text[i] === "]") { i++; return; }
+      for (let n = 0; ; n++) {
+        value(path + "[" + n + "]");
+        ws();
+        if (text[i] === ",") { i++; continue; }
+        expect("]");
+        return;
+      }
+    } else if (text[i] === "\"") {
+      str();
+    } else {
+      while (i < text.length && /[^\s,\]}]/.test(text[i])) i++;
+    }
+  };
+  try {
+    value("");
+    return places;
+  } catch (e) {
+    return null;
+  }
+}
+
+// ---- controls -------------------------------------------------------------------------------
+
+$("autopush").onchange = (e) => post("/api/autopush?on=" + e.target.checked);
+$("pushAll").onclick = () => post("/api/push-all");
+$("refresh").onclick = () => post("/api/refresh");
+window.addEventListener("hashchange", () => {
+  const h = decodeURIComponent(location.hash.slice(1));
+  if (h && h !== selected) select(h);
+});
+window.addEventListener("beforeunload", (e) => {
+  if (dirty()) { e.preventDefault(); e.returnValue = ""; }
+});
+
+loop();
+</script>
+</body>
+</html>

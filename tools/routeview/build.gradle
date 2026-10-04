@@ -1,0 +1,86 @@
+plugins {
+    id 'application'
+}
+
+// Route View (readme.md): a live map of the JSON autonomous routes that pushes each saved route
+// to the Control Hub.
+//
+// It runs the robot's own route engine and the docs/autos.pdf drawing code, compiled here straight
+// from TeamCode's source tree, so what it validates and draws can't drift from what the robot
+// runs or from the PDF. Only the files in TEAMCODE_SOURCES are compiled; they must stay free of
+// Android/SDK types (src/stubs stands in for the one they mention).
+
+def teamCodeSrc = file('../../TeamCode/src')
+
+def TEAMCODE_SOURCES = [
+        // TeamCode/src/main/java — the route engine the robot runs
+        'org/firstinspires/ftc/teamcode/auto/Alliance.java',
+        'org/firstinspires/ftc/teamcode/auto/AutoContext.java',
+        'org/firstinspires/ftc/teamcode/auto/Step.java',
+        'org/firstinspires/ftc/teamcode/auto/Steps.java',
+        'org/firstinspires/ftc/teamcode/auto/Waypoint.java',
+        'org/firstinspires/ftc/teamcode/auto/route/ActionRegistry.java',
+        'org/firstinspires/ftc/teamcode/auto/route/Route.java',
+        'org/firstinspires/ftc/teamcode/auto/route/RouteChecksum.java',
+        'org/firstinspires/ftc/teamcode/auto/route/RouteCompiler.java',
+        'org/firstinspires/ftc/teamcode/auto/route/RouteException.java',
+        'org/firstinspires/ftc/teamcode/auto/route/RouteParser.java',
+        // TeamCode/src/test/java — auto maps (docs/autos.pdf): field, run model, painter
+        'org/firstinspires/ftc/teamcode/automaps/AutoRun.java',
+        'org/firstinspires/ftc/teamcode/automaps/BiobuzzField.java',
+        'org/firstinspires/ftc/teamcode/automaps/Canvas.java',
+        'org/firstinspires/ftc/teamcode/automaps/FieldPainter.java',
+        'org/firstinspires/ftc/teamcode/automaps/Geometry.java',
+        'org/firstinspires/ftc/teamcode/automaps/MapSettings.java',
+        'org/firstinspires/ftc/teamcode/automaps/Pdf.java',
+]
+
+repositories {
+    mavenCentral()
+}
+
+sourceSets {
+    // Desktop stand-ins for SDK types the shared sources mention but the tool never uses.
+    stubs
+    teamcode {
+        java {
+            srcDirs = ["$teamCodeSrc/main/java", "$teamCodeSrc/test/java"]
+            include TEAMCODE_SOURCES
+        }
+    }
+}
+
+dependencies {
+    // The versions the robot runs: RobotCore bundles Gson 2.8.0; revhub 3.0.1 brings Pedro core 3.0.1.
+    def gson = 'com.google.code.gson:gson:2.8.0'
+    def pedro = 'com.pedropathing:core:3.0.1'
+
+    teamcodeImplementation gson
+    teamcodeImplementation pedro
+    teamcodeImplementation sourceSets.stubs.output
+
+    implementation gson
+    implementation pedro
+    implementation sourceSets.teamcode.output
+    implementation sourceSets.stubs.output
+
+    testImplementation 'junit:junit:4.13.2'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 17
+    options.encoding = 'UTF-8'
+}
+
+application {
+    mainClass = 'org.firstinspires.ftc.teamcode.routeview.RouteView'
+}
+
+tasks.named('run') {
+    workingDir = file('../..')   // the repo root, where the routes and local.properties are
+    standardInput = System.in
+}
+
+tasks.named('test') {
+    workingDir = file('../..')
+}

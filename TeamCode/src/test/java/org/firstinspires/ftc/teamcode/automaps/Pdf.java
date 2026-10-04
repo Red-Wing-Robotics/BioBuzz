@@ -72,7 +72,7 @@ final class Pdf {
     enum Align { LEFT, CENTER, RIGHT }
 
     /** One page's drawing operations, written as a PDF content stream. */
-    static final class Page {
+    static final class Page implements Canvas {
         final double width;
         final double height;
         private final StringBuilder ops = new StringBuilder();
@@ -82,23 +82,23 @@ final class Pdf {
             this.height = height;
         }
 
-        Page fill(Color c) { return op(n(c.r) + " " + n(c.g) + " " + n(c.b) + " rg"); }
-        Page stroke(Color c) { return op(n(c.r) + " " + n(c.g) + " " + n(c.b) + " RG"); }
-        Page lineWidth(double w) { return op(n(w) + " w"); }
-        Page dash(double on, double off) { return op("[" + n(on) + " " + n(off) + "] 0 d"); }
-        Page solid() { return op("[] 0 d"); }
-        Page roundCaps() { return op("1 J 1 j"); }
-        Page buttCaps() { return op("0 J 0 j"); }
+        @Override public Page fill(Color c) { return op(n(c.r) + " " + n(c.g) + " " + n(c.b) + " rg"); }
+        @Override public Page stroke(Color c) { return op(n(c.r) + " " + n(c.g) + " " + n(c.b) + " RG"); }
+        @Override public Page lineWidth(double w) { return op(n(w) + " w"); }
+        @Override public Page dash(double on, double off) { return op("[" + n(on) + " " + n(off) + "] 0 d"); }
+        @Override public Page solid() { return op("[] 0 d"); }
+        @Override public Page roundCaps() { return op("1 J 1 j"); }
+        @Override public Page buttCaps() { return op("0 J 0 j"); }
         Page save() { return op("q"); }
         Page restore() { return op("Q"); }
 
-        Page moveTo(double x, double y) { return op(n(x) + " " + n(y) + " m"); }
-        Page lineTo(double x, double y) { return op(n(x) + " " + n(y) + " l"); }
-        Page close() { return op("h"); }
-        Page rect(double x, double y, double w, double h) { return op(n(x) + " " + n(y) + " " + n(w) + " " + n(h) + " re"); }
+        @Override public Page moveTo(double x, double y) { return op(n(x) + " " + n(y) + " m"); }
+        @Override public Page lineTo(double x, double y) { return op(n(x) + " " + n(y) + " l"); }
+        @Override public Page close() { return op("h"); }
+        @Override public Page rect(double x, double y, double w, double h) { return op(n(x) + " " + n(y) + " " + n(w) + " " + n(h) + " re"); }
 
         /** A circle, as four Bezier arcs. */
-        Page circle(double cx, double cy, double r) {
+        @Override public Page circle(double cx, double cy, double r) {
             double k = 0.5523 * r;
             moveTo(cx + r, cy);
             op(n(cx + r) + " " + n(cy + k) + " " + n(cx + k) + " " + n(cy + r) + " " + n(cx) + " " + n(cy + r) + " c");
@@ -108,12 +108,12 @@ final class Pdf {
             return close();
         }
 
-        Page fillPath() { return op("f"); }
-        Page strokePath() { return op("S"); }
-        Page fillAndStroke() { return op("B"); }
+        @Override public Page fillPath() { return op("f"); }
+        @Override public Page strokePath() { return op("S"); }
+        @Override public Page fillAndStroke() { return op("B"); }
 
         /** Text with its baseline at {@code y}, aligned to {@code x}. */
-        Page text(Font font, double size, Color color, double x, double y, Align align, String text) {
+        @Override public Page text(Font font, double size, Color color, double x, double y, Align align, String text) {
             double w = font.width(text, size);
             double left = align == Align.LEFT ? x : align == Align.CENTER ? x - w / 2 : x - w;
             fill(color);
@@ -122,7 +122,7 @@ final class Pdf {
         }
 
         /** Text rotated 90° counter-clockwise (reads bottom to top), centred on (x, y). */
-        Page textUp(Font font, double size, Color color, double x, double y, String text) {
+        @Override public Page textUp(Font font, double size, Color color, double x, double y, String text) {
             double w = font.width(text, size);
             fill(color);
             return op("BT /" + font.resource + " " + n(size) + " Tf 0 1 -1 0 " + n(x) + " " + n(y - w / 2)

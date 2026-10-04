@@ -7,7 +7,14 @@ on top of PedroPathing.
 
 `TeamCode/src/main/assets/autos/NAME.json` (version-controlled, shipped in the APK). A copy at
 `/sdcard/FIRST/autos/NAME.json` on the Control Hub **overrides** it, so a route can be changed at
-an event without a rebuild:
+an event without a rebuild.
+
+**Fastest: Route View** ([tools/routeview](../../../../../../../../../tools/routeview/readme.md)).
+Run `./gradlew -p tools/routeview run` and open http://127.0.0.1:8765. Each save is checked the way
+INIT checks it, drawn like `docs/autos.pdf`, and pushed to the hub in well under a second. Files
+that would fail INIT aren't pushed.
+
+By hand:
 
 ```
 adb connect 192.168.43.1:5555            # once, on the robot's Wi-Fi
@@ -18,7 +25,8 @@ and pushing to a folder that doesn't exist fails with "remote couldn't create fi
 directory". With a full path, adb creates the folder.
 
 (Or use Android Studio → Device Explorer.) Delete the override to go back to the APK copy:
-`adb shell rm /sdcard/FIRST/autos/leave_and_park.json`. The DS telemetry says which one was loaded.
+`adb shell rm /sdcard/FIRST/autos/leave_and_park.json`. The DS telemetry says which one was
+loaded, with a checksum of the file (`RouteChecksum`) that matches the one Route View shows.
 
 ```json
 {

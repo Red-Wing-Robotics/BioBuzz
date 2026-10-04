@@ -19,16 +19,21 @@ import java.nio.charset.StandardCharsets;
  *                                        adb push NAME.json /sdcard/FIRST/autos/NAME.json —
  *                                        the full path, so adb creates the folder if needed)
  *   2. APK asset  TeamCode/src/main/assets/autos/NAME.json   (the version-controlled copy)
+ *
+ * tools/routeview pushes the override automatically when you save a route on the laptop.
  */
 public final class RouteFiles {
 
     public static final class Loaded {
         public final String json;
         public final String source;
+        /** {@link RouteChecksum} of the file, to compare with what tools/routeview pushed. */
+        public final String checksum;
 
-        Loaded(String json, String source) {
-            this.json = json;
+        Loaded(byte[] bytes, String source) {
+            this.json = new String(bytes, StandardCharsets.UTF_8);
             this.source = source;
+            this.checksum = RouteChecksum.of(bytes);
         }
     }
 
@@ -55,13 +60,13 @@ public final class RouteFiles {
         }
     }
 
-    private static String readAll(InputStream in) throws IOException {
+    private static byte[] readAll(InputStream in) throws IOException {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         byte[] buffer = new byte[4096];
         int n;
         while ((n = in.read(buffer)) != -1) {
             out.write(buffer, 0, n);
         }
-        return new String(out.toByteArray(), StandardCharsets.UTF_8);
+        return out.toByteArray();
     }
 }

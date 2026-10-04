@@ -11,16 +11,16 @@ import org.firstinspires.ftc.teamcode.automaps.Geometry.Poly;
 import org.firstinspires.ftc.teamcode.automaps.Pdf.Align;
 import org.firstinspires.ftc.teamcode.automaps.Pdf.Color;
 import org.firstinspires.ftc.teamcode.automaps.Pdf.Font;
-import org.firstinspires.ftc.teamcode.automaps.Pdf.Page;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 /**
- * Draws the BIOBUZZ field and one auto's run onto a PDF page, to scale. Field inches map to page
- * points with the origin at the field's bottom-left (the corner by the red GARDEN), audience at
- * the bottom, red alliance on the left, as in the Pedro Pathing visualizer.
+ * Draws the BIOBUZZ field and one auto's run onto a {@link Canvas} (a PDF page, or the SVG in
+ * tools/routeview), to scale. Field inches map to page points with the origin at the field's
+ * bottom-left (the corner by the red GARDEN), audience at the bottom, red alliance on the left,
+ * as in the Pedro Pathing visualizer.
  */
 final class FieldPainter {
 
@@ -49,13 +49,13 @@ final class FieldPainter {
     static Color color(Alliance a) { return a == Alliance.RED ? RED : BLUE; }
     static Color tint(Alliance a) { return a == Alliance.RED ? RED_TINT : BLUE_TINT; }
 
-    private final Page page;
+    private final Canvas page;
     private final double ox;
     private final double oy;
     private final double k;
 
     /** Field of {@code side} points with its bottom-left corner at (ox, oy). */
-    FieldPainter(Page page, double ox, double oy, double side) {
+    FieldPainter(Canvas page, double ox, double oy, double side) {
         this.page = page;
         this.ox = ox;
         this.oy = oy;
@@ -245,7 +245,7 @@ final class FieldPainter {
         return false;
     }
 
-    private Page poly(Poly p) {
+    private Canvas poly(Poly p) {
         page.moveTo(px(p.x[0]), py(p.y[0]));
         for (int i = 1; i < p.x.length; i++) {
             page.lineTo(px(p.x[i]), py(p.y[i]));
