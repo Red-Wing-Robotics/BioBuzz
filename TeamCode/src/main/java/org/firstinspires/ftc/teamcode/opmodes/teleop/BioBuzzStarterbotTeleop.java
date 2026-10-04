@@ -58,6 +58,7 @@ public class BioBuzzStarterbotTeleop extends OpMode {
     private DcMotor rightDrive = null;
     private DcMotorEx launcher = null;
     private DcMotor intake = null;
+    private CRServo feeder = null;
     private CRServo leftIntakeServo = null;
     private CRServo rightIntakeServo = null;
     private CRServo windmillServo = null;
@@ -89,6 +90,7 @@ public class BioBuzzStarterbotTeleop extends OpMode {
     // Last values read/commanded in launch(), kept for telemetry so we don't read hardware twice.
     double launcherVelocity;
     double windmillPower;
+    double feederPower;
 
     /*
      * Code to run ONCE when the driver hits INIT
@@ -105,6 +107,7 @@ public class BioBuzzStarterbotTeleop extends OpMode {
         rightDrive = hardwareMap.get(DcMotor.class, "right_drive");
         intake = hardwareMap.get(DcMotor.class, "intake");
         launcher = hardwareMap.get(DcMotorEx.class, "launcher");
+        feeder = hardwareMap.get(CRServo.class, "feeder");
         windmillServo = hardwareMap.get(CRServo.class, "windmill");
         leftIntakeServo = hardwareMap.get(CRServo.class, "left_intake_servo");
         rightIntakeServo = hardwareMap.get(CRServo.class, "right_intake_servo");
@@ -152,6 +155,7 @@ public class BioBuzzStarterbotTeleop extends OpMode {
          */
         rightIntakeServo.setDirection(DcMotorSimple.Direction.REVERSE);
         windmillServo.setDirection(DcMotorSimple.Direction.FORWARD);
+        feeder.setDirection(DcMotorSimple.Direction.REVERSE);
 
         /*
          * Tell the driver that initialization is complete.
@@ -227,6 +231,7 @@ public class BioBuzzStarterbotTeleop extends OpMode {
         telemetry.addData("Launcher", "%.0f / %d ticks/s", launcherVelocity,
                 gamepad1.right_bumper ? LAUNCHER_TARGET_VELOCITY : 0);
         telemetry.addData("Windmill", "%.2f", windmillPower);
+        telemetry.addData("Feeder", "%.2f", feederPower);
         telemetry.addData("Intake", "%.2f", intakePower);
         telemetry.addLine();
 
@@ -275,11 +280,14 @@ public class BioBuzzStarterbotTeleop extends OpMode {
         launcherVelocity = launcher.getVelocity();
         if (gamepad1.right_bumper && launcherVelocity > LAUNCHER_MIN_VELOCITY) {
             windmillPower = 1;
+            feederPower = 1;
             intakePower += 0.5;
         } else {
             windmillPower = 0;
+            feederPower = 0;
         }
         windmillServo.setPower(windmillPower);
+        feeder.setPower(feederPower);
     }
 
 
