@@ -9,17 +9,29 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.teamcode.RobotHardware;
 import org.firstinspires.ftc.teamcode.auto.Alliance;
+import org.firstinspires.ftc.teamcode.auto.AutoContext;
+import org.firstinspires.ftc.teamcode.auto.PoseHandoff;
+import org.firstinspires.ftc.teamcode.auto.Waypoint;
 import org.firstinspires.ftc.teamcode.pedro.Constants;
 
+import java.util.List;
+import java.util.Locale;
+
 /**
- * Base class for driver-controlled OpModes. A subclass picks an alliance and a
- * {@link ControlScheme}, creates subsystems in {@link #onInit}, and turns {@link DriverCommands}
- * into subsystem calls in {@link #apply}. This class owns the loop, the gamepads, robot-centric
- * driving through the Follower, the endgame cue, and telemetry.
+ * Base class for driver-controlled OpModes. A subclass picks an alliance, a {@link ControlScheme}
+ * and a start waypoint, creates subsystems in {@link #onInit}, defines its {@link Assists} in
+ * {@link #registerAssists}, and turns {@link DriverCommands} into subsystem calls in
+ * {@link #apply}. This class owns the loop, the gamepads, driving through the Follower, the
+ * assists, the endgame cue, and telemetry.
  *
  * Every loop: clear the bulk cache → snapshot both gamepads → the scheme maps them to commands →
- * drive → {@link #apply}. Nothing moves during INIT (G403); the Driver Station shows the control
- * card instead. The Pinpoint IMU calibrates at INIT, so keep the robot still.
+ * start/stop requested assists → drive sticks cancel driving assists → run assists → drive
+ * manually unless an assist owns DRIVE → {@link #apply}.
+ *
+ * Start pose: where AUTO ended if it stopped within the last {@link PoseHandoff#MAX_AGE_SECONDS},
+ * otherwise {@link #startWaypoint()}. Nothing moves during INIT (G403); the Driver Station shows
+ * the start pose and the control card instead. The Pinpoint IMU calibrates at INIT, so keep the
+ * robot still.
  */
 public abstract class TeleOpBase extends OpMode {
 
@@ -28,28 +40,71 @@ public abstract class TeleOpBase extends OpMode {
 
     private final DriverInput input = new DriverInput();
     private final DriverCommands commands = new DriverCommands();
+    private final Assists assists = new Assists();
     private final MatchClock clock = new MatchClock();
     private final ElapsedTime sinceStart = new ElapsedTime();
     private final ElapsedTime sinceLastLoop = new ElapsedTime();
     private ControlScheme scheme;
+    private AutoContext ctx;
+    private Pose initialPose;
+    private String initialPoseSource;
 
     protected abstract Alliance alliance();
 
     /** The gamepad layout. Called once per INIT, so a scheme's toggles start off. */
     protected abstract ControlScheme scheme();
 
+    /**
+     * Where the robot starts when no AUTO ran just before this TeleOp: RED frame, inches and
+     * degrees, mirrored for BLUE like auto waypoints. For practice, put the robot here before INIT.
+     */
+    protected abstract Waypoint startWaypoint();
+
+    /** Start from the pose a just-finished AUTO handed over. Override to return false to always use {@link #startWaypoint()}. */
+    protected boolean usePoseFromAuto() {
+        return true;
+    }
+
     /** Optional: create subsystems from {@link #robot}. Must not move anything (G403). */
     protected void onInit() {}
 
-    /** Act on this loop's mechanism commands. Driving is already done. Runs once per loop. */
+    /** Optional: define the assists this TeleOp's schemes may request. Runs after {@link #onInit}. */
+    protected void registerAssists(Assists assists) {}
+
+    /**
+     * Act on this loop's mechanism commands. Skip any resource an assist owns
+     * ({@link #assisting}). Driving is already done. Runs once per loop.
+     */
     protected abstract void apply(DriverCommands commands);
+
+    /** {@link #startWaypoint()} in this OpMode's alliance frame, e.g. as an assist target. */
+    protected final Pose startPose() {
+        return alliance().pose(startWaypoint());
+    }
+
+    /** True while an assist owns {@code resource}; {@link #apply} should leave it alone. */
+    protected final boolean assisting(Resource resource) {
+        return assists.owns(resource);
+    }
 
     @Override
     public final void init() {
         robot = new RobotHardware(hardwareMap);
         follower = Constants.create(hardwareMap); // recalibrates the Pinpoint IMU: keep the robot still
+        ctx = new AutoContext(robot, follower, sinceStart::seconds);
         scheme = scheme();
         onInit();
+        registerAssists(assists);
+
+        PoseHandoff.Saved fromAuto = usePoseFromAuto() ? PoseHandoff.recent() : null;
+        if (fromAuto != null) {
+            initialPose = fromAuto.pose;
+            initialPoseSource = String.format(Locale.US, "where AUTO ended, %.0f s ago", fromAuto.ageSeconds);
+        } else {
+            initialPose = startPose();
+            initialPoseSource = "start waypoint";
+        }
+        follower.setPose(initialPose);
     }
 
     @Override
@@ -57,6 +112,8 @@ public abstract class TeleOpBase extends OpMode {
         // Read during INIT too, so a button held through START isn't seen as a fresh press.
         readGamepads();
         telemetry.addData("alliance", alliance());
+        telemetry.addData("start", "%s: x %.1f  y %.1f  heading %.0f°", initialPoseSource,
+                initialPose.x(), initialPose.y(), Math.toDegrees(initialPose.heading()));
         telemetry.addData("controls", scheme.name());
         for (Binding binding : scheme.bindings()) {
             telemetry.addData(binding.input(), binding.action);
@@ -79,8 +136,15 @@ public abstract class TeleOpBase extends OpMode {
 
         commands.clear();
         scheme.map(input, commands);
-        follower.manual(new DrivePowers(commands.forward, commands.strafe, commands.turn));
-        follower.update(); // reads the localizer, then applies the manual powers
+        assists.request(commands, ctx, clock.isEndgame());
+        if (commands.forward != 0 || commands.strafe != 0 || commands.turn != 0) {
+            assists.cancel(Resource.DRIVE, ctx); // the driver always wins
+        }
+        assists.update(ctx);
+        if (!assists.owns(Resource.DRIVE)) {
+            follower.manual(new DrivePowers(commands.forward, commands.strafe, commands.turn));
+        }
+        follower.update(); // reads the localizer, then applies manual powers or the assist's path
         apply(commands);
 
         if (clock.endgameStarted()) { // 1:00 left: NECTAR may now go into FLOWERS (G410)
@@ -92,6 +156,12 @@ public abstract class TeleOpBase extends OpMode {
         telemetry.addData("time left", "%s%s", clock.remainingText(), clock.isEndgame() ? "  ENDGAME" : "");
         telemetry.addData("pose", "x %.1f  y %.1f  heading %.0f°",
                 pose.x(), pose.y(), Math.toDegrees(pose.heading()));
+        List<String> active = assists.describe();
+        telemetry.addData("assists", active.isEmpty() ? "none" : String.join(", ", active));
+        String notice = assists.notice(ctx.time());
+        if (notice != null) {
+            telemetry.addData("assist", notice);
+        }
         telemetry.addData("drive", "fwd %.2f  strafe %.2f  turn %.2f%s",
                 commands.forward, commands.strafe, commands.turn, commands.slow ? "  SLOW" : "");
         telemetry.addData("intake", "%.2f", commands.intake);
@@ -101,6 +171,9 @@ public abstract class TeleOpBase extends OpMode {
 
     @Override
     public final void stop() {
+        if (ctx != null) {
+            assists.cancelAll(ctx);
+        }
         if (follower != null) {
             follower.stop();
         }

@@ -1,5 +1,6 @@
 package org.firstinspires.ftc.teamcode.auto;
 
+import com.pedropathing.api.Paths;
 import com.pedropathing.math.Pose;
 import com.pedropathing.paths.Path;
 
@@ -74,6 +75,15 @@ public final class Steps {
     /** Holds a pose (in the alliance frame) until interrupted, e.g. by {@link #withTimeout}. */
     public static Step hold(String name, Pose pose) {
         return new HoldPose(name, pose);
+    }
+
+    /**
+     * Drives a straight line from wherever the robot is when the step starts to {@code target}
+     * (alliance frame), turning to its heading on the way. For TeleOp assists, whose start isn't
+     * known in advance. Finishes at once if the robot is already within 1 in of the target.
+     */
+    public static Step driveTo(String name, Pose target) {
+        return new DriveTo(name, target);
     }
 
     // ---- implementations ------------------------------------------------------------
@@ -292,5 +302,42 @@ public final class Steps {
         @Override public boolean update(AutoContext ctx) { return false; }
         @Override public void end(AutoContext ctx, boolean interrupted) { ctx.follower.stop(); }
         @Override public String name() { return "hold " + name; }
+    }
+
+    static final class DriveTo implements Step {
+        private static final double ARRIVED_INCHES = 1.0;
+
+        private final String name;
+        private final Pose target;
+        private boolean moving;
+
+        DriveTo(String name, Pose target) {
+            this.name = name;
+            this.target = target;
+        }
+
+        @Override
+        public void start(AutoContext ctx) {
+            Pose from = ctx.follower.pose();
+            // A zero-length path has no direction to follow, so "already there" is simply done.
+            moving = Math.hypot(target.x() - from.x(), target.y() - from.y()) >= ARRIVED_INCHES;
+            if (moving) {
+                ctx.follower.follow(Paths.line(from, target).linear(from, target));
+            }
+        }
+
+        @Override
+        public boolean update(AutoContext ctx) {
+            return !moving || !ctx.follower.following();
+        }
+
+        @Override
+        public void end(AutoContext ctx, boolean interrupted) {
+            if (interrupted && moving) {
+                ctx.follower.stop();
+            }
+        }
+
+        @Override public String name() { return "drive to " + name; }
     }
 }

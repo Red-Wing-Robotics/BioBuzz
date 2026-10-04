@@ -82,6 +82,7 @@ public abstract class AutoOpMode extends OpMode {
             routine.end(ctx, true);
         }
         if (follower != null) {
+            PoseHandoff.save(follower.pose()); // a TeleOp INIT'd soon after starts from here
             follower.stop();
         }
     }

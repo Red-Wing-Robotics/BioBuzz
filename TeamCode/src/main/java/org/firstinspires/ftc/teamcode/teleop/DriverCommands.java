@@ -1,5 +1,9 @@
 package org.firstinspires.ftc.teamcode.teleop;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
 /**
  * What the drivers are asking the robot to do this loop: the output of a {@link ControlScheme}
  * and the input to {@link TeleOpBase}, which turns it into drive and subsystem calls. Plain
@@ -24,6 +28,27 @@ public final class DriverCommands {
     /** Feed elements into the flywheels while true. The shooter decides whether it is ready. */
     public boolean fire;
 
+    private final List<String> pressedAssists = new ArrayList<>();
+    private final List<String> heldAssists = new ArrayList<>();
+
+    /** Start the named {@link Assist}, or cancel it if it is running. Call in the loop its button is pressed. */
+    public void press(String assist) {
+        pressedAssists.add(assist);
+    }
+
+    /** Run the named {@link Assist} while this is called every loop; it is cancelled the first loop it isn't. */
+    public void hold(String assist) {
+        heldAssists.add(assist);
+    }
+
+    public List<String> pressedAssists() {
+        return Collections.unmodifiableList(pressedAssists);
+    }
+
+    public List<String> heldAssists() {
+        return Collections.unmodifiableList(heldAssists);
+    }
+
     /** Back to "do nothing". Called before every {@link ControlScheme#map}. */
     public void clear() {
         forward = 0;
@@ -33,5 +58,7 @@ public final class DriverCommands {
         intake = 0;
         shooterOn = false;
         fire = false;
+        pressedAssists.clear();
+        heldAssists.clear();
     }
 }

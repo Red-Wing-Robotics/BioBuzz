@@ -3,6 +3,21 @@
 Short, dated entries. Newest first. Record *why*, not just *what*, so nobody (human or AI)
 re-proposes a rejected idea without knowing the history.
 
+## 2026-10-01 — TeleOp assists run `Step`s; TeleOp start pose comes from AUTO or a waypoint
+
+Autonomous actions triggered from TeleOp ("assists") reuse the auto `Step` engine instead of
+hand-written state machines or a command library. A subsystem action is written once as a `Step`
+factory and used by both autos and TeleOp. TeleOps define assists in `registerAssists` (name,
+`Resource`s, `Step` factory); schemes request them by name with `press` / `hold`. Rules agreed:
+assists that don't share a resource run together and a conflicting start interrupts the older one;
+pressing again cancels; release cancels a held assist; any drive-stick movement cancels assists
+using DRIVE (the driver always wins); manual control of an owned resource pauses. Each TeleOp
+declares a start waypoint (RED frame), but a pose saved by `AutoOpMode.stop()` within the last
+30 s wins (`PoseHandoff`). After a match AUTO the robot is wherever AUTO left it, not at the
+TeleOp's start, so using the waypoint alone would put field-position assists off by the whole
+auto path. 30 s covers the 8 s transition with margin; a longer window risks a stale pose in
+practice after the robot is moved by hand.
+
 ## 2026-10-01 — TeleOp controls live in control schemes (`teleop/`)
 
 Every gamepad assignment is a `Binding` declared in a `ControlScheme` (`teleop/schemes/`).

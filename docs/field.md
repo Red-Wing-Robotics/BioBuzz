@@ -41,3 +41,5 @@ touching a FLOWER, within 18 in cube, contacting exactly 4 pre-loaded POLLEN.
 | FLOWER ×4 | on perimeter wall, top opening 21.5 in above tiles | TODO exact positions |
 | LOADING ZONE | 23 × 11 in at wall by alliance area | PARK target; NECTAR entry |
 | GARDEN | 23 × 2 in tape strip, opposite corners | 1 pt per ball |
+| Shooting spot, drivers' left | (48, 96, −45°) RED frame | **placeholder** — tune; runtime truth is `opmodes/teleop/ShootingSpots.java` |
+| Shooting spot, drivers' right | (48, 48, 45°) RED frame | **placeholder** — tune; TeleOp gp1 d-pad ← / → drives there and holds |

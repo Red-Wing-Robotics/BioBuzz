@@ -4,6 +4,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
+import org.firstinspires.ftc.teamcode.teleop.Assist;
 import org.firstinspires.ftc.teamcode.teleop.Axis;
 import org.firstinspires.ftc.teamcode.teleop.Binding;
 import org.firstinspires.ftc.teamcode.teleop.Button;
@@ -16,6 +17,7 @@ import org.firstinspires.ftc.teamcode.teleop.Pad;
 import org.junit.Test;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -112,6 +114,28 @@ public class ControlSchemesTest {
     public void soloUsesOnlyGamepad1() {
         for (Binding binding : new SoloScheme().bindings()) {
             assertEquals(binding.input(), Pad.GAMEPAD1, binding.pad);
+        }
+    }
+
+    @Test
+    public void soloBRequestsReturnToStartOncePerPress() {
+        ControlScheme scheme = new SoloScheme();
+        DriverInput in = new DriverInput();
+        assertEquals(Collections.singletonList(Assist.RETURN_TO_START),
+                loop(scheme, in, in.gamepad1, Button.B, true).pressedAssists());
+        assertTrue("still held: no second request",
+                loop(scheme, in, in.gamepad1, Button.B, true).pressedAssists().isEmpty());
+    }
+
+    @Test
+    public void driverDpadGoesToTheShootingSpots() {
+        for (ControlScheme scheme : allSchemes()) {
+            DriverInput in = new DriverInput();
+            assertEquals(scheme.name(), Collections.singletonList(Assist.SHOOT_LEFT),
+                    loop(scheme, in, in.gamepad1, Button.DPAD_LEFT, true).pressedAssists());
+            loop(scheme, in, in.gamepad1, Button.DPAD_LEFT, false);
+            assertEquals(scheme.name(), Collections.singletonList(Assist.SHOOT_RIGHT),
+                    loop(scheme, in, in.gamepad1, Button.DPAD_RIGHT, true).pressedAssists());
         }
     }
 

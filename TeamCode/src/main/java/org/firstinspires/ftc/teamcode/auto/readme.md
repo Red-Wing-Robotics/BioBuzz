@@ -69,7 +69,10 @@ Station at INIT with the path to the offending step, e.g. `routine[2].follow.lin
 - `Step` — what actions implement: `start` / non-blocking `update` returning done / `end`.
 - `Steps` — the same combinators as the JSON (`sequence`, `parallel`, `race`, `withTimeout`,
   `waitSeconds`, `waitUntil`, `instant`, `follow`, `hold`) for routines written in Java
-  directly on `AutoOpMode`, when a file can't express something.
+  directly on `AutoOpMode`, when a file can't express something. `driveTo` builds its path from
+  wherever the robot is when the step starts, for TeleOp assists (`teleop/readme.md`).
+- `PoseHandoff` — `AutoOpMode.stop()` saves the final pose; a TeleOp INIT'd within 30 s starts
+  from it instead of its own start waypoint.
 - `AutoWaypoints` — `@Configurable`: the loaded route's waypoints, live-editable in Panels (dev
   builds). Set `reloadFromFileOnInit = false` to keep edits across re-INITs; copy final values
   back into the JSON.

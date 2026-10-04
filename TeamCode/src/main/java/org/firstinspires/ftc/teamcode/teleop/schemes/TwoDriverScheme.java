@@ -3,6 +3,7 @@ package org.firstinspires.ftc.teamcode.teleop.schemes;
 import static org.firstinspires.ftc.teamcode.teleop.Pad.GAMEPAD1;
 import static org.firstinspires.ftc.teamcode.teleop.Pad.GAMEPAD2;
 
+import org.firstinspires.ftc.teamcode.teleop.Assist;
 import org.firstinspires.ftc.teamcode.teleop.Axis;
 import org.firstinspires.ftc.teamcode.teleop.Binding;
 import org.firstinspires.ftc.teamcode.teleop.Button;
@@ -22,6 +23,8 @@ public class TwoDriverScheme extends ControlScheme {
     private final Binding strafe = axis(GAMEPAD1, Axis.LEFT_STICK_X, "strafe left / right");
     private final Binding turn = axis(GAMEPAD1, Axis.RIGHT_STICK_X, "turn");
     private final Binding slow = button(GAMEPAD1, Button.RIGHT_BUMPER, "hold: slow mode");
+    private final Binding shootLeft = button(GAMEPAD1, Button.DPAD_LEFT, "press: go to left shooting spot and hold (sticks cancel)");
+    private final Binding shootRight = button(GAMEPAD1, Button.DPAD_RIGHT, "press: go to right shooting spot and hold (sticks cancel)");
 
     // ---- Operator (gamepad2) ------------------------------------------------------------
     private final Binding intakeIn = axis(GAMEPAD2, Axis.RIGHT_TRIGGER, "intake in");
@@ -45,5 +48,11 @@ public class TwoDriverScheme extends ControlScheme {
         }
         out.shooterOn = shooterOn;
         out.fire = in.held(fire);
+        if (in.pressed(shootLeft)) {
+            out.press(Assist.SHOOT_LEFT);
+        }
+        if (in.pressed(shootRight)) {
+            out.press(Assist.SHOOT_RIGHT);
+        }
     }
 }

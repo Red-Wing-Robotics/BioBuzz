@@ -52,3 +52,18 @@ dependencies {
     devImplementation 'com.bylazar:fullpanels:1.0.13'   // http://192.168.43.1:8001
     devImplementation 'com.pedropathing:tuning:1.0.1'   // http://192.168.43.1:10158
 }
+
+// Autonomous maps (docs/auto-maps.md). The AutoMapsPdf unit test draws every JSON autonomous into
+// docs/autos.pdf whenever the dev unit tests run; `./gradlew :TeamCode:autoMaps` is the shortcut.
+// Route files are test inputs, so editing one makes the next test run redraw the PDF.
+def autoMapsPdf = rootProject.file('docs/autos.pdf')
+tasks.matching { it.name == 'testDevDebugUnitTest' }.configureEach {
+    inputs.dir('src/main/assets/autos').withPropertyName('autoRoutes')
+    outputs.file(autoMapsPdf).withPropertyName('autoMapsPdf')
+    systemProperty 'autoMaps.output', autoMapsPdf.absolutePath
+}
+tasks.register('autoMaps') {
+    group = 'documentation'
+    description = 'Draws every JSON autonomous into docs/autos.pdf (see docs/auto-maps.md).'
+    dependsOn 'testDevDebugUnitTest'
+}

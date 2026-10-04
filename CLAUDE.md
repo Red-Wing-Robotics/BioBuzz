@@ -21,11 +21,13 @@ Game rules summary: [RULES.md](RULES.md) — read it before designing any mechan
   RED frame. A copy at `/sdcard/FIRST/autos/` on the hub overrides the APK one (no rebuild).
 - `opmodes/auto/` — one tiny `JsonAutoOpMode` subclass per route naming the file and registering
   subsystem actions; nested `Red`/`Blue` classes register both alliances.
-- `teleop/` — TeleOp engine: `TeleOpBase` (loop, drive, endgame cue), `DriverCommands`,
-  `DriveFeel` (`@Configurable` stick feel). `teleop/schemes/` holds **the gamepad layouts**, the
-  only place buttons are assigned. Rules in `teleop/readme.md`.
-- `opmodes/teleop/` — `CompTeleOp` with nested `Red`/`Blue`/`Solo` variants; turns
-  `DriverCommands` into subsystem calls. Never read gamepads here; bindings belong in a scheme.
+- `teleop/` — TeleOp engine: `TeleOpBase` (loop, drive, start pose, endgame cue),
+  `DriverCommands`, `Assists` (button-triggered `Step`s with resource ownership), `DriveFeel`
+  (`@Configurable` stick feel). `teleop/schemes/` holds **the gamepad layouts**, the only place
+  buttons are assigned. Rules in `teleop/readme.md`.
+- `opmodes/teleop/` — `CompTeleOp` with nested `Red`/`Blue`/`Solo` variants: start waypoint,
+  assist definitions, and `DriverCommands` → subsystem calls. Never read gamepads here; bindings
+  belong in a scheme.
 - `pedro/` — PedroPathing constants (`Constants.java`).
 - `TeamCode/src/dev/java/` — **dev-only source set** (build variant `devDebug`): Pedro tuning
   registrations/procedures and anything else that must not ship in a competition build.

@@ -2,6 +2,7 @@ package org.firstinspires.ftc.teamcode.teleop.schemes;
 
 import static org.firstinspires.ftc.teamcode.teleop.Pad.GAMEPAD1;
 
+import org.firstinspires.ftc.teamcode.teleop.Assist;
 import org.firstinspires.ftc.teamcode.teleop.Axis;
 import org.firstinspires.ftc.teamcode.teleop.Binding;
 import org.firstinspires.ftc.teamcode.teleop.Button;
@@ -23,6 +24,9 @@ public class SoloScheme extends ControlScheme {
     private final Binding intakeOut = axis(GAMEPAD1, Axis.LEFT_TRIGGER, "intake out (unjam)");
     private final Binding shooter = button(GAMEPAD1, Button.Y, "press: shooter on / off");
     private final Binding fire = button(GAMEPAD1, Button.LEFT_BUMPER, "hold: fire");
+    private final Binding returnToStart = button(GAMEPAD1, Button.B, "press: drive back to start (sticks cancel)");
+    private final Binding shootLeft = button(GAMEPAD1, Button.DPAD_LEFT, "press: go to left shooting spot and hold (sticks cancel)");
+    private final Binding shootRight = button(GAMEPAD1, Button.DPAD_RIGHT, "press: go to right shooting spot and hold (sticks cancel)");
 
     private boolean shooterOn;
 
@@ -40,5 +44,14 @@ public class SoloScheme extends ControlScheme {
         }
         out.shooterOn = shooterOn;
         out.fire = in.held(fire);
+        if (in.pressed(returnToStart)) {
+            out.press(Assist.RETURN_TO_START);
+        }
+        if (in.pressed(shootLeft)) {
+            out.press(Assist.SHOOT_LEFT);
+        }
+        if (in.pressed(shootRight)) {
+            out.press(Assist.SHOOT_RIGHT);
+        }
     }
 }
