@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Route View</title>
+<title>Jimothy</title>
+<link rel="icon" type="image/svg+xml" href="/jimothy.svg">
 <style>
   :root {
     --bg: #f4f5f7; --panel: #ffffff; --ink: #17212b; --muted: #5b6672; --line: #dde1e5;
@@ -22,9 +23,14 @@
     }
   }
   * { box-sizing: border-box; }
+  [hidden] { display: none !important; } /* class rules like .robotbar { display: flex } would win otherwise */
   body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
   header { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 3; }
-  header h1 { font-size: 16px; margin: 0 8px 0 0; }
+  .brand { display: flex; align-items: center; gap: 9px; margin-right: 8px; }
+  .brand img { width: 30px; height: 30px; display: block; }
+  .brand h1 { font-size: 17px; margin: 0; letter-spacing: -0.01em; }
+  .brand .tag { font-size: 12px; color: var(--muted); }
+  @media (max-width: 600px) { .brand .tag { display: none; } }
   .pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; background: var(--chip); font-size: 13px; }
   .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
   .dot.on { background: var(--good); }
@@ -64,6 +70,16 @@
   .msg .mono { font-size: 13px; }
   .msg .btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
   .body { margin-top: 4px; }
+  .robotbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; padding: 8px 10px; border-radius: 8px; background: var(--chip); }
+  .robotbar .label { font-weight: 600; margin-right: 4px; }
+  .robotbar select { max-width: 260px; }
+  .robotbar button.go:not(:disabled) { background: var(--good); border-color: var(--good); color: #fff; font-weight: 600; }
+  .robotbar button.stop:not(:disabled) { background: var(--bad); border-color: var(--bad); color: #fff; font-weight: 700; padding: 4px 18px; }
+  .robotbar .rstatus { font-size: 13px; }
+  .robotbar .rstatus.live { font-weight: 600; }
+  .robotbar .full { flex-basis: 100%; font-size: 12px; }
+  .robotbar .warn { color: var(--warn); }
+  .robotbar .bad { color: var(--bad); }
   .body.editing { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
   @media (max-width: 1100px) { .body.editing { grid-template-columns: minmax(0, 1fr); } }
   .tabs { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; margin: 14px 0 10px; }
@@ -93,6 +109,7 @@
   .row .time { color: var(--muted); font-size: 12px; }
   .row.group .text { font-weight: 600; }
   .wp { display: grid; grid-template-columns: 1fr auto; font-size: 13px; margin: 2px 0; }
+  .framenote { color: var(--muted); font-size: 12px; margin-top: 6px; }
   .empty { color: var(--muted); padding: 30px 0; text-align: center; }
 
   /* editor: a transparent textarea over a highlighted copy of its text */
@@ -126,7 +143,11 @@
 </head>
 <body>
 <header>
-  <h1>Route View</h1>
+  <div class="brand">
+    <img src="/jimothy.svg" alt="">
+    <h1>Jimothy</h1>
+    <span class="tag">BioBuzz route planner</span>
+  </div>
   <span class="pill" id="hub"><span class="dot"></span><span>hub</span></span>
   <button id="connect" hidden>Connect</button>
   <label class="toggle"><input type="checkbox" id="autopush"> push on save</label>
@@ -134,7 +155,7 @@
   <button id="pushAll" title="Push every valid route whose hub copy differs">Push all</button>
   <button id="refresh" title="Read the hub's copies again">Re-read hub</button>
 </header>
-<div class="notice bad" id="offline" hidden>Route View isn't running. Start it again with <span class="mono">./gradlew -p tools/routeview run</span>; this page reconnects by itself.</div>
+<div class="notice bad" id="offline" hidden>Jimothy isn't running. Start it again with <span class="mono">./gradlew -p tools/routeview run</span>; this page reconnects by itself.</div>
 <div class="notice" id="hubHelp" hidden></div>
 <main>
   <nav class="routes" id="routes"></nav>
@@ -168,7 +189,10 @@ let editing = store.get("editing") === "1";
 let detail = null;        // the last /api/route answer (saved file), or null
 let detailKey = null;     // what it was fetched for
 let shownChecksum = null; // the saved map last drawn, to flash it when a save changes it
-let view = null;          // DOM of the route shown: { key, head, sums, body, mapPane, editor? }
+let view = null;          // DOM of the route shown: { key, head, sums, robotBar, body, mapPane, editor? }
+let stateAt = 0;          // when the last state arrived, to count the robot's elapsed time locally
+const robotChoice = {};   // route name → the OpMode picked for it
+let robotError = null;    // { text, at } from the last refused robot command
 
 /** The editor's file and draft. base = checksum of the disk version the draft started from. */
 const ed = {
@@ -210,6 +234,7 @@ async function loop() {
       const r = await fetch("/api/state?since=" + since);
       if (!r.ok) throw new Error("HTTP " + r.status);
       state = await r.json();
+      stateAt = Date.now();
       since = state.version;
       $("offline").hidden = true;
       renderState();
@@ -238,7 +263,7 @@ function renderState() {
   help.hidden = hub.online;
   help.textContent = !hub.adb ? hub.message
     : !hub.wanted ? "Disconnected from the hub. Saves wait until you click Connect."
-    : "Not connected to the hub. Join the robot's Wi-Fi, then click Connect (Route View also retries every 2 s). "
+    : "Not connected to the hub. Join the robot's Wi-Fi, then click Connect (Jimothy also retries every 2 s). "
       + "Saves made meanwhile are pushed when it connects. Last adb reply: " + hub.message;
   $("autopush").checked = state.autoPush;
   $("pushAll").disabled = !hub.online;
@@ -302,6 +327,7 @@ function renderDetail() {
   if (!r) return;
   renderHead(r);
   renderSums(r);
+  renderRobot(r);
   renderMap(r);
   if (view.editor) renderEditor();
 }
@@ -318,9 +344,10 @@ function build(key, r) {
   const card = el("div", "card");
   view.head = el("div", "head");
   view.sums = el("div", "sums");
+  view.robotBar = el("div", "robotbar");
   view.body = el("div", "body");
   view.mapPane = el("div");
-  card.append(view.head, view.sums, view.body);
+  card.append(view.head, view.sums, view.robotBar, view.body);
   box.append(card);
   if (editing && r.present) {
     view.body.classList.add("editing");
@@ -386,6 +413,103 @@ function labelled(label, value, title) {
   return s;
 }
 
+// ---- one route: run it on the robot ------------------------------------------------------------
+
+function renderRobot(r) {
+  const bar = view.robotBar;
+  bar.replaceChildren();
+  view.robotStatus = null;
+  bar.hidden = !state.hub.online; // the banner under the header says how to connect
+  if (bar.hidden) return;
+  bar.append(el("span", "label", "Robot"));
+  const robot = state.robot;
+  if (!robot.available) {
+    bar.append(el("span", "rstatus muted", robot.problem || "checking the robot app…"));
+    return;
+  }
+  const st = robot.status;
+  const mine = st.opModes.filter((o) => o.route === r.name);
+  const others = st.opModes.filter((o) => o.route !== r.name);
+  const pick = el("select");
+  pick.title = "Autonomous OpModes on the robot; this route's first";
+  for (const [label, list] of [[r.name + ".json", mine], ["Other autonomous", others]]) {
+    if (!list.length) continue;
+    const group = document.createElement("optgroup");
+    group.label = label;
+    for (const o of list) group.append(new Option(o.name, o.name));
+    pick.append(group);
+  }
+  const fallback = mine.find((o) => o.alliance === alliance) || mine[0] || others[0];
+  // sdkActive is the SDK's own answer, so STOP works even if the robot's phase tracking misses something.
+  const busy = st.phase !== "IDLE" || !!st.sdkActive;
+  const choice = busy ? st.active || st.sdkActive : robotChoice[r.name] || (fallback && fallback.name);
+  if (choice) pick.value = choice;
+  pick.onchange = () => { robotChoice[r.name] = pick.value; };
+  pick.disabled = busy;
+
+  const init = el("button", null, "INIT");
+  init.disabled = busy || !pick.value;
+  init.onclick = () => robotCommand("init?name=" + enc(pick.value));
+  const start = el("button", "go", "START");
+  start.disabled = st.phase !== "INIT";
+  start.onclick = () => robotCommand("start");
+  const stop = el("button", "stop", "STOP");
+  stop.disabled = !busy;
+  stop.onclick = () => robotCommand("stop");
+  view.robotStatus = el("span", "rstatus");
+  bar.append(pick, init, start, stop, view.robotStatus);
+  tickRobot();
+
+  const running = mine.find((o) => o.name === pick.value);
+  if (running && r.present && r.sync !== "same") {
+    bar.append(el("div", "full warn", r.sync === "missing"
+      ? "The hub has no copy of this route, so INIT loads the one built into the APK."
+      : "The hub's copy of this route differs from the laptop's, and INIT loads the hub's. Push first?"));
+  }
+  if (robotError && Date.now() - robotError.at < 8000) bar.append(el("div", "full bad", robotError.text));
+  if (st.error) bar.append(el("div", "full bad", "Robot error (as the Driver Station shows it): " + st.error));
+  if (st.phase === "IDLE" && st.lastEnded) bar.append(el("div", "full muted", "Last run: " + st.lastEnded + "."));
+  bar.append(el("div", "full muted", "Stand by the robot with the Driver Station; its STOP works too. "
+    + "Started from here, an OpMode stops after 30 s, or 1.5 s after Jimothy stops answering."));
+}
+
+/** Updates the robot's status line, counting the time locally between state updates. */
+function tickRobot() {
+  const s = view && view.robotStatus;
+  if (!s || !state.robot.available) return;
+  const st = state.robot.status;
+  let text, live = false;
+  if (st.phase === "IDLE" && st.sdkActive) {
+    text = st.sdkActive + " is active on the robot";
+    live = true;
+  } else if (st.phase === "IDLE") {
+    text = "idle" + (st.lastStop ? " · " + st.lastStop : "");
+  } else if (st.phase === "INIT") {
+    text = "INIT · " + st.active;
+    live = true;
+  } else {
+    const secs = (st.ms + Date.now() - stateAt) / 1000;
+    text = "RUNNING · " + st.active + " · " + secs.toFixed(1) + " s"
+      + (st.remote ? " of " + st.limitMs / 1000 : " (started on the Driver Station)");
+    live = true;
+  }
+  s.textContent = text;
+  s.className = "rstatus" + (live ? " live" : "");
+}
+
+async function robotCommand(path) {
+  robotError = null;
+  try {
+    const res = await fetch("/api/robot/" + path, { method: "POST" });
+    if (!res.ok) robotError = { text: (await res.json()).error || "HTTP " + res.status, at: Date.now() };
+  } catch (e) {
+    robotError = { text: "Jimothy isn't reachable. Use the Driver Station.", at: Date.now() };
+  }
+  if (robotError) renderDetail();
+}
+
+setInterval(tickRobot, 100);
+
 // ---- one route: map ---------------------------------------------------------------------------
 
 function renderMap(r) {
@@ -434,7 +558,7 @@ function mapView(result, label, dim, stack, flashable) {
   const rep = alliance === "RED" ? result.red : result.blue;
   const map = el("div", "map" + (stack ? " stack" : "") + (dim ? " dim" : ""));
   const field = el("div", "field");
-  field.innerHTML = rep.svg; // drawn by Route View from the route file; its text is escaped
+  field.innerHTML = rep.svg; // drawn by Jimothy from the route file; its text is escaped
   if (flashable) {
     if (shownChecksum !== null && shownChecksum !== result.checksum) field.classList.add("flash");
     shownChecksum = result.checksum;
@@ -483,13 +607,15 @@ function side(rep) {
     s.append(d);
   }
 
-  s.append(el("h3", null, "WAYPOINTS, " + rep.alliance + " FRAME (x, y, heading)"));
+  // Terms and frame: docs/coordinates.md. The route file holds red; blue is it turned 180°.
+  s.append(el("h3", null, rep.alliance === "RED" ? "WAYPOINTS (x, y, heading)" : "WAYPOINTS, TURNED 180° FOR BLUE (x, y, heading)"));
   for (const w of rep.waypoints) {
     const d = el("div", "wp");
     d.append(el("strong", null, w.name + (w.control ? " (control)" : "")),
       el("span", "mono", w.x.toFixed(1) + ", " + w.y.toFixed(1) + ", " + Math.round(w.headingDeg) + "°"));
     s.append(d);
   }
+  s.append(el("div", "framenote", "Inches and degrees as in docs/coordinates.md: 0° faces the blue wall, counter-clockwise is positive."));
   return s;
 }
 
@@ -508,7 +634,7 @@ const SNIPPETS = {
   "step: sequence": () => `{ "sequence": [ ] }`,
   "step: parallel": () => `{ "parallel": [ ] }`,
   "step: race": () => `{ "race": [ ] }`,
-  "waypoint": () => `"NEW": [72, 72, 0]`,
+  "waypoint": () => `"NEW": [24, 72, 0]`, // red half, between the red wall and the HIVE
   "heading: tangent": () => `"heading": "tangent"`,
   "heading: facing": (w) => `"heading": { "facing": "${w[w.length - 1]}" }`,
   "modifiers: name + timeout": () => `"name": "describe it", "timeout": 3`,
@@ -527,7 +653,7 @@ const REFERENCE = [
   ["{ \"action\": \"shooter.fire\", \"args\": { … } }", "an action an OpMode registers"],
   ["{ \"hold\": \"PARK\", \"timeout\": 2 }", "hold a pose (timeout required)"],
   ["\"name\", \"timeout\"", "on any step: Driver Station label; seconds before it's interrupted"],
-  ["waypoints", "\"NAME\": [x, y, headingDeg], inches and degrees, RED frame"],
+  ["waypoints", "\"NAME\": [x, y, headingDeg], inches and degrees, RED frame (docs/coordinates.md)"],
 ];
 
 function buildEditor() {
@@ -702,7 +828,7 @@ async function saveDraft(overwrite) {
       ed.noteBad = true;
     }
   } catch (e) {
-    ed.note = "Not saved: Route View isn't reachable.";
+    ed.note = "Not saved: Jimothy isn't reachable.";
     ed.noteBad = true;
   }
   ed.saving = false;

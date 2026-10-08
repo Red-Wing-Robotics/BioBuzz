@@ -106,6 +106,26 @@ final class Hub {
         return r.text().isEmpty() ? r.problem() : r.text();
     }
 
+    /**
+     * A local port that adb tunnels to the robot app's web server (port 8080, where the dev build's
+     * RouteViewRemote answers), over Wi-Fi or USB alike.
+     */
+    int forwardWebServer() throws Failure {
+        Adb.Result r = adb.run(5000, "-s", serial, "forward", "tcp:0", "tcp:8080");
+        if (!r.ok()) {
+            throw new Failure("adb forward: " + r.problem());
+        }
+        try {
+            return Integer.parseInt(r.text().trim());
+        } catch (NumberFormatException e) {
+            throw new Failure("adb forward answered \"" + r.text() + "\"");
+        }
+    }
+
+    void removeForward(int port) {
+        adb.run(3000, "-s", serial, "forward", "--remove", "tcp:" + port);
+    }
+
     /** Route name → {@link RouteChecksum} of every override on the hub. */
     Map<String, String> overrides() throws Failure {
         Map<String, String> found = new TreeMap<>();

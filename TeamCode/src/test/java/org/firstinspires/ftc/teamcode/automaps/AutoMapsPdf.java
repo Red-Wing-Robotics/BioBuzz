@@ -270,8 +270,8 @@ public class AutoMapsPdf {
         y -= 6;
         rule(page, x, y, x + width);
         String[] lines = {
-                "Field: the Pedro Pathing visualizer's BIOBUZZ field, 141.5 in square. Origin at the red GARDEN corner, "
-                        + "x toward the blue wall, y away from the audience, heading 0° = facing +x.",
+                String.format(Locale.US, "Field: docs/coordinates.md. %.0f in square, origin at the red GARDEN corner, "
+                        + "x toward the blue wall, y away from the audience, heading 0° = facing +x.", BiobuzzField.SIZE),
                 String.format(Locale.US, "Robot: %.0f x %.0f in. Time per path: accelerate at %.0f in/s² to %.0f in/s, decelerate, "
                                 + "then %.2f s to settle. Action and waitUntil times aren't known (shown as ?).",
                         MapSettings.ROBOT_LENGTH, MapSettings.ROBOT_WIDTH, MapSettings.ACCEL, MapSettings.SPEED, MapSettings.SETTLE),

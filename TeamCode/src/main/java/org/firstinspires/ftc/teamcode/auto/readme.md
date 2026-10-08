@@ -9,7 +9,7 @@ on top of PedroPathing.
 `/sdcard/FIRST/autos/NAME.json` on the Control Hub **overrides** it, so a route can be changed at
 an event without a rebuild.
 
-**Fastest: Route View** ([tools/routeview](../../../../../../../../../tools/routeview/readme.md)).
+**Fastest: Jimothy** ([tools/routeview](../../../../../../../../../tools/routeview/readme.md)).
 Run `./gradlew -p tools/routeview run` and open http://127.0.0.1:8765. Each save is checked the way
 INIT checks it, drawn like `docs/autos.pdf`, and pushed to the hub in well under a second. Files
 that would fail INIT aren't pushed.
@@ -26,7 +26,7 @@ directory". With a full path, adb creates the folder.
 
 (Or use Android Studio → Device Explorer.) Delete the override to go back to the APK copy:
 `adb shell rm /sdcard/FIRST/autos/leave_and_park.json`. The DS telemetry says which one was
-loaded, with a checksum of the file (`RouteChecksum`) that matches the one Route View shows.
+loaded, with a checksum of the file (`RouteChecksum`) that matches the one Jimothy shows.
 
 ```json
 {
@@ -41,8 +41,9 @@ loaded, with a checksum of the file (`RouteChecksum`) that matches the one Route
 }
 ```
 
-Waypoints are `[x, y, headingDeg]` in the **RED** frame; the OpMode's alliance maps them
-(`Alliance.BLUE` = 180° rotation about the field centre). One file serves both alliances.
+Waypoints are `[x, y, headingDeg]` in the **RED** frame; the OpMode's alliance maps them. One
+file serves both alliances. Origin, axes, heading and the BLUE rotation are defined in
+[docs/coordinates.md](../../../../../../../../../docs/coordinates.md).
 
 ### Steps
 
@@ -78,12 +79,21 @@ Station at INIT with the path to the offending step, e.g. `routine[2].follow.lin
 - `Steps` — the same combinators as the JSON (`sequence`, `parallel`, `race`, `withTimeout`,
   `waitSeconds`, `waitUntil`, `instant`, `follow`, `hold`) for routines written in Java
   directly on `AutoOpMode`, when a file can't express something. `driveTo` builds its path from
-  wherever the robot is when the step starts, for TeleOp assists (`teleop/readme.md`).
+  wherever the robot is when the step starts, for TeleOp assists (`teleop/readme.md`), going
+  round any `KeepOut`s it is given.
+- `KeepOut` — a field rectangle the robot's centre must stay out of, and the shortest way round a
+  set of them (straight lines via their corners). Pure Java, unit-tested.
+- `Field` — the field's numbers in code: `SIZE`, `CENTER`, and `HIVE` (the HIVE structure's floor
+  footprint, a `KeepOut`: grow it by the robot's reach before use; the auto maps draw it too).
+  What they mean: [docs/coordinates.md](../../../../../../../../../docs/coordinates.md).
 - `PoseHandoff` — `AutoOpMode.stop()` saves the final pose; a TeleOp INIT'd within 30 s starts
   from it instead of its own start waypoint.
 - `AutoWaypoints` — `@Configurable`: the loaded route's waypoints, live-editable in Panels (dev
   builds). Set `reloadFromFileOnInit = false` to keep edits across re-INITs; copy final values
   back into the JSON.
+- `RouteViewRemote` (dev source set, `TeamCode/src/dev/java/.../auto`) — lets tools/routeview INIT,
+  START and STOP OpModes over the robot app's web server; its safety rules are `RemoteRunGuard`
+  (tests in `TeamCode/src/testDev`). Not in competition builds.
 - `route/` — `RouteParser` (file → `Route`), `RouteCompiler` (`Route` → `Step` for an alliance),
   `ActionRegistry`, `RouteFiles` (hub override / APK asset). All but `RouteFiles` are pure Java
   and unit-tested.

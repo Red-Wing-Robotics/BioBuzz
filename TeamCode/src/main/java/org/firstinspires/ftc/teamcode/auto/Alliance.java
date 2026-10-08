@@ -4,16 +4,14 @@ import com.pedropathing.api.PoseFactory;
 import com.pedropathing.math.Pose;
 
 /**
- * Which alliance an auto runs for. Waypoints are authored once in the RED frame; BLUE poses are
- * produced by rotating them 180° about the field centre (72, 72), which also flips the heading.
- *
- * TODO(field): confirm BIOBUZZ is rotationally symmetric (GARDENs are in opposite corners, which
- * suggests so). If the field is mirrored left/right instead, use
- * {@code PoseFactory.degrees().mirrorX(72)} for BLUE.
+ * Which alliance an OpMode plays. Poses are written once in the RED frame; BLUE ones are rotated
+ * 180° about the field centre ({@link Field#CENTER}), which also turns the heading by 180°.
+ * BIOBUZZ is rotationally symmetric, so this, not a left/right mirror, is right. Both are defined
+ * in docs/coordinates.md.
  */
 public enum Alliance {
     RED(PoseFactory.degrees()),
-    BLUE(PoseFactory.degrees().mirrorAroundPoint(72, 72));
+    BLUE(PoseFactory.degrees().mirrorAroundPoint(Field.CENTER, Field.CENTER));
 
     private final PoseFactory poses;
 

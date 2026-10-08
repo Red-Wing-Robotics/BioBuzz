@@ -148,6 +148,7 @@ public class BioBuzzStarterbotTeleop extends OpMode {
         leftIntakeServo.setPower(0);
         rightIntakeServo.setPower(0);
         windmillServo.setPower(0);
+        feeder.setPower(0);
 
         /*
          * Much like our drivetrain motors, we set the right intake servo to reverse so that both

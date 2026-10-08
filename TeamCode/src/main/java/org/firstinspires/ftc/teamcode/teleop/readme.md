@@ -27,14 +27,16 @@ can check both before START.
 
 ## Start position
 
-Each TeleOp declares `startWaypoint()`: RED frame, inches and degrees, mirrored for BLUE like
-auto waypoints. At INIT the Follower is set to:
+Each TeleOp declares `startWaypoint()`: RED frame, inches and degrees, mapped for BLUE like
+auto waypoints ([docs/coordinates.md](../../../../../../../../../docs/coordinates.md)). At INIT the
+Follower is set to:
 
 1. **where AUTO ended**, if an auto stopped within the last 30 s (`auto/PoseHandoff`), which is
    the normal match flow. Override `usePoseFromAuto()` to return false to skip this.
 2. otherwise **the start waypoint**. For practice, put the robot there before INIT.
 
-The DS says which one was used. Field-position assists are only as accurate as this pose.
+The DS says which one was used. Field-position assists are only as accurate as this pose (see
+"How the robot knows where it is" in docs/coordinates.md).
 
 ## Assists
 
@@ -43,7 +45,7 @@ factory that builds a fresh `Step` each time it starts:
 
 ```java
 assists.define(Assist.RETURN_TO_START, EnumSet.of(Resource.DRIVE),
-        () -> Steps.driveTo("start", startPose()));
+        () -> Steps.driveTo("start", startPose(), hive()));  // round the HIVE, see CompTeleOp
 assists.define(Assist.FIRE_ALL, EnumSet.of(Resource.SHOOTER, Resource.FEEDER),
         () -> shooter.fireAll());                       // a subsystem's Step factory
 ```

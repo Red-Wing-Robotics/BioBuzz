@@ -1,7 +1,10 @@
-# Route View
+<img src="src/main/resources/routeview/jimothy.svg" width="80" align="right" alt="Jimothy">
 
-A live map and editor for the JSON autonomous routes that pushes every saved route to the
-Control Hub, so a route change reaches the robot without a rebuild or redeploy.
+# Jimothy
+
+The team's BioBuzz route planner: a live map and editor for the JSON autonomous routes that pushes
+every saved route to the Control Hub, so a route change reaches the robot without a rebuild or
+redeploy, and can INIT and START autos on the robot from the laptop.
 
 ```
 ./gradlew -p tools/routeview run            # from the repo root; then open http://127.0.0.1:8765
@@ -16,15 +19,15 @@ off) · `--open` (open the page in a browser).
 
 1. Edit `TeamCode/src/main/assets/autos/NAME.json`, either in the page's editor (**Edit** on a
    route) or in any other editor, and save.
-2. Within ~0.2 s Route View checks the file the way the robot does at INIT and redraws the map.
-   If the robot would accept it, Route View pushes it to `/sdcard/FIRST/autos/NAME.json`, which
+2. Within ~0.2 s Jimothy checks the file the way the robot does at INIT and redraws the map.
+   If the robot would accept it, Jimothy pushes it to `/sdcard/FIRST/autos/NAME.json`, which
    overrides the APK's copy. A file the robot would reject is **not** pushed; the error, with its
    path (`routine[2].follow.line[1]: unknown waypoint …`), shows on the page and in the console
    with a terminal bell.
 3. INIT the auto. The Driver Station line `route: NAME — /sdcard/FIRST/autos/NAME.json · 3610a686`
-   ends in the file's checksum. It should match the `#3610a686` Route View printed for the push.
+   ends in the file's checksum. It should match the `#3610a686` Jimothy printed for the push.
 
-**Connecting to the hub:** Route View does `adb connect 192.168.43.1:5555` for you, using the
+**Connecting to the hub:** Jimothy does `adb connect 192.168.43.1:5555` for you, using the
 `adb` in your Android SDK (`sdk.dir` in local.properties). It retries every 2 s while the hub is
 away, and **Connect** in the header tries right now and shows adb's answer. **Disconnect** runs
 `adb disconnect` and stops the retries until you click Connect again. Saves made while
@@ -46,13 +49,35 @@ previews your unsaved changes (dimmed while there's an error).
 - It edits existing routes only. A new route also needs an OpMode in `opmodes/auto/`, so create
   the file in the repo.
 
+## Running an auto on the robot
+
+With the hub connected and the **dev build** (devDebug) on the robot, each route shows a
+**Robot** bar: pick an autonomous OpMode (the route's own OpModes first), then **INIT**, **START**
+and **STOP**, with its phase and elapsed time. So the whole tuning loop stays on the laptop: edit,
+save (it pushes), INIT, START, watch, STOP, put the robot back.
+
+- It's `RouteViewRemote` in `TeamCode/src/dev/java/.../auto`, registered on the robot app's own web
+  server (port 8080) and reached through `adb forward`, so it works over Wi-Fi or USB. Competition
+  builds don't contain it (R704); against one, the bar says to install the dev build.
+- **Safety** (`RemoteRunGuard`, unit tested): an OpMode STARTed from here stops after 30 s, and
+  1.5 s after Jimothy stops polling the robot (laptop asleep, Wi-Fi or adb dropped, Jimothy
+  closed). One started on the Driver Station is left alone. **Stand by the robot with the Driver
+  Station**; its STOP works as always.
+- The bar warns when the hub's copy of the route isn't the laptop's, since INIT loads the hub's.
+- It uses SDK internals (`OpModeManagerImpl`, `RegisteredOpModes`) as FTC Dashboard and Panels do,
+  so an SDK update can break it; that shows up as a dev-build compile error.
+
 ## The page
 
 - **Routes:** each file's check result and its state on the hub: *on hub ✓*, *hub has a different
   version*, *not on hub* (the robot runs the APK copy), *only on the hub*, or *hub ?* (not
   connected).
 - **Map:** the same drawing, points estimate, time estimate and rule checks as `docs/autos.pdf`, for
-  red and blue. It flashes when a save changes it.
+  red and blue. It flashes when a save changes it. Coordinates are as defined in
+  [docs/coordinates.md](../../docs/coordinates.md). The Red tab lists waypoints as the route file
+  writes them; the Blue tab lists them turned 180° about the field centre, as the blue robot runs
+  them.
+- **Robot:** see above.
 - **Connect / Disconnect:** see above. The banner under the header shows adb's last answer, e.g.
   *no answer from 192.168.43.1:5555. Is this laptop on the robot's Wi-Fi?*
 - **Push to hub / Push all / Remove from hub / Re-read hub:** for syncing by hand, e.g. at an
@@ -70,9 +95,13 @@ runtime gets a false warning, but a real typo fails INIT on the robot.
   auto-maps code (`TeamCode/src/test/.../automaps/`) **from TeamCode's source tree**: the list is
   `TEAMCODE_SOURCES` in `build.gradle`. Those files must stay free of Android/SDK types;
   `src/stubs` stands in for the one they mention (`RobotHardware`). The compile-check hook builds
-  Route View whenever one of them changes.
+  Jimothy whenever one of them changes.
 - `FieldPainter` draws onto a `Canvas`. `Pdf.Page` and `SvgCanvas` both implement it, so the
   PDF and the page come from the same code.
+- **No field numbers of its own.** The field size, centre, HIVE and every map shape come from
+  TeamCode's `auto/Field.java` and `automaps/BiobuzzField`, and the BLUE rotation from `Alliance`,
+  as `docs/coordinates.md` defines them. Anything new that turns a click into a position (like
+  dragging waypoints) must go through those too. `LiveMapTest` checks the map against them.
 - `RouteView` holds the watcher (polls file times every 200 ms), the hub thread (every adb call,
   in order), and the state the page long-polls (`WebServer`). Pushes send exactly the bytes that
   were checked. The editor's saves go through the same file and watcher: `/api/check` checks a
@@ -87,5 +116,25 @@ runtime gets a false warning, but a real typo fails INIT on the robot.
 ```
 ./gradlew -p tools/routeview test           # unit tests (run in the repo root)
 ```
+
+## Brand
+
+**Jimothy** is the bee in the icon: a BioBuzz hive cell, a start waypoint and a dotted flight path,
+with Jimothy flying it. The icon is `src/main/resources/routeview/jimothy.svg`, served at
+`/jimothy.svg` as the favicon and the page header's logo.
+
+| Colour | Hex | Used for |
+|---|---|---|
+| Honey | `#F4B41A` | the icon's hive cell and Jimothy's stripes |
+| Ink | `#1B2027` | the route, Jimothy's body, outlines |
+| White | `#FFFFFF` | wings, eye |
+
+- The icon was checked from 256 px down to the 16 px browser tab, on light and dark backgrounds;
+  keep its shapes bold if you change it.
+- Honey stays in the icon. In the app, amber already means *warning* and red/blue mean the
+  alliances, so the interface itself stays neutral.
+- The name is user-facing. Code names from before it (`tools/routeview`, `RouteView`,
+  `RouteViewRemote`, the robot's `/routeview/` endpoints and `X-RouteView` header) stay as they
+  are.
 
 Nothing here can push without a Control Hub, so adb behaviour is only verified on the robot.

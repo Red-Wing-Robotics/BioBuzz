@@ -24,6 +24,7 @@ import java.util.concurrent.Executors;
  *
  * <pre>
  * GET  /                       the page (resources/routeview/index.html)
+ * GET  /jimothy.svg            the icon (resources/routeview/jimothy.svg)
  * GET  /api/state?since=N      every route's status; waits up to 25 s for a version newer than N
  * GET  /api/route?name=X       one route's check and both alliances' maps
  * GET  /api/source?name=X      the file's text and checksum, for the editor
@@ -35,6 +36,9 @@ import java.util.concurrent.Executors;
  * POST /api/remove?name=X      delete the hub's copy, so the robot runs the APK's
  * POST /api/refresh            re-read the hub's copies
  * POST /api/connect            adb connect now (and keep reconnecting every 2 s)
+ * POST /api/robot/init?name=X  INIT an OpMode on the robot (dev build: RouteViewRemote)
+ * POST /api/robot/start        START it
+ * POST /api/robot/stop         stop the robot's active OpMode
  * POST /api/disconnect         adb disconnect, and stop reconnecting until /api/connect
  * POST /api/autopush?on=B      push on save, or not
  * </pre>
@@ -66,7 +70,7 @@ final class WebServer {
         try {
             String method = x.getRequestMethod();
             if (!allowed(method, x.getRequestHeaders().getFirst("Host"), x.getRequestHeaders().getFirst("Origin"), port)) {
-                send(x, 403, "text/plain", "Route View only answers http://127.0.0.1:" + port + "/");
+                send(x, 403, "text/plain", "Jimothy only answers http://127.0.0.1:" + port + "/");
                 return;
             }
             String path = x.getRequestURI().getPath();
@@ -75,6 +79,8 @@ final class WebServer {
 
             if (path.equals("/") && !post) {
                 page(x);
+            } else if (path.equals("/jimothy.svg") && !post) {
+                icon(x);
             } else if (path.equals("/api/state") && !post) {
                 long since = q.containsKey("since") ? Long.parseLong(q.get("since")) : 0;
                 json(x, 200, view.awaitState(since, LONG_POLL_MILLIS));
@@ -106,6 +112,12 @@ final class WebServer {
             } else if (post && path.equals("/api/remove") && q.containsKey("name")) {
                 view.requestRemove(q.get("name"));
                 accepted(x);
+            } else if (post && path.equals("/api/robot/init") && q.containsKey("name")) {
+                robot(x, view.robotCommand("init", q.get("name")));
+            } else if (post && path.equals("/api/robot/start")) {
+                robot(x, view.robotCommand("start", null));
+            } else if (post && path.equals("/api/robot/stop")) {
+                robot(x, view.robotCommand("stop", null));
             } else if (post && path.equals("/api/connect")) {
                 view.requestConnect();
                 accepted(x);
@@ -179,8 +191,27 @@ final class WebServer {
         return new String(bytes, StandardCharsets.UTF_8);
     }
 
+    /** The robot's answer: 200, 409 if it refused, 502 if it couldn't be reached. */
+    private static void robot(HttpExchange x, RobotLink.Answer answer) throws IOException {
+        JsonObject body = new JsonObject();
+        if (!answer.ok()) {
+            body.addProperty("error", answer.problem());
+        }
+        json(x, answer.ok() ? 200 : answer.status == 0 ? 502 : 409, body);
+    }
+
     private static void reply(HttpExchange x, RouteView.Reply reply) throws IOException {
         json(x, reply.status, reply.body);
+    }
+
+    private void icon(HttpExchange x) throws IOException {
+        try (InputStream in = WebServer.class.getResourceAsStream("/routeview/jimothy.svg")) {
+            if (in == null) {
+                send(x, 404, "text/plain", "icon missing from the build");
+                return;
+            }
+            send(x, 200, "image/svg+xml", new String(in.readAllBytes(), StandardCharsets.UTF_8));
+        }
     }
 
     private static void json(HttpExchange x, int status, JsonObject body) throws IOException {

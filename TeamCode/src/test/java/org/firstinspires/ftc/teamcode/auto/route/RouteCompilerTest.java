@@ -4,13 +4,14 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
-import com.pedropathing.math.Pose;
 import com.pedropathing.paths.Path;
 
 import org.firstinspires.ftc.teamcode.auto.Alliance;
 import org.firstinspires.ftc.teamcode.auto.AutoContext;
 import org.firstinspires.ftc.teamcode.auto.Step;
+import org.firstinspires.ftc.teamcode.auto.Steps;
 import org.firstinspires.ftc.teamcode.auto.Waypoint;
 import org.junit.Test;
 
@@ -43,14 +44,38 @@ public class RouteCompilerTest {
     }
 
     @Test
-    public void shippedRouteCompilesForBothAlliances() throws IOException {
-        Route route = RouteParser.parse(RouteParserTest.asset("leave_and_park"));
-        for (Alliance alliance : Alliance.values()) {
-            RouteCompiler c = new RouteCompiler(alliance, route.waypoints, new ActionRegistry());
-            Step step = c.compile(route);
-            assertEquals("leave wall", step.name());               // first step of the sequence
-            Pose start = c.startPose(route);
-            assertEquals(alliance == Alliance.RED ? 8 : 136, start.x(), EPS);
+    public void everyShippedRouteCompilesForBothAlliances() throws IOException {
+        // How BLUE maps from RED is AllianceTest's job; this checks each route's references.
+        for (Map.Entry<String, String> file : RouteParserTest.shippedRoutes().entrySet()) {
+            Route route = RouteParser.parse(file.getValue());
+            ActionRegistry anyName = new ActionRegistry();
+            registerEveryName(route.routine, anyName);
+            for (Alliance alliance : Alliance.values()) {
+                RouteCompiler compiler = new RouteCompiler(alliance, route.waypoints, anyName);
+                compiler.startPose(route);
+                compiler.compile(route);
+            }
+        }
+    }
+
+    /** Actions and conditions are registered by OpModes on the robot; here any name compiles. */
+    private static void registerEveryName(JsonElement e, ActionRegistry registry) {
+        if (e.isJsonArray()) {
+            for (JsonElement child : e.getAsJsonArray()) {
+                registerEveryName(child, registry);
+            }
+        } else if (e.isJsonObject()) {
+            for (Map.Entry<String, JsonElement> entry : e.getAsJsonObject().entrySet()) {
+                JsonElement v = entry.getValue();
+                boolean name = v.isJsonPrimitive() && v.getAsJsonPrimitive().isString();
+                if (name && entry.getKey().equals("action")) {
+                    registry.action(v.getAsString(), args -> Steps.instant(v.getAsString(), () -> {}));
+                } else if (name && entry.getKey().equals("waitUntil")) {
+                    registry.condition(v.getAsString(), () -> true);
+                } else {
+                    registerEveryName(v, registry);
+                }
+            }
         }
     }
 

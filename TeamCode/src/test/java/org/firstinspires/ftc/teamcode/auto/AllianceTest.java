@@ -32,8 +32,17 @@ public class AllianceTest {
 
     @Test
     public void fieldCentreIsFixedForBothAlliances() {
-        Pose p = Alliance.BLUE.pose(new Waypoint(72, 72, 0));
-        assertEquals(72, p.x(), EPS);
-        assertEquals(72, p.y(), EPS);
+        Pose p = Alliance.BLUE.pose(new Waypoint(Field.CENTER, Field.CENTER, 0));
+        assertEquals(72, Field.CENTER, EPS); // Pedro's documented centre: docs/coordinates.md
+        assertEquals(Field.CENTER, p.x(), EPS);
+        assertEquals(Field.CENTER, p.y(), EPS);
+    }
+
+    @Test
+    public void blueOriginIsTheOppositeCorner() {
+        Pose p = Alliance.BLUE.pose(new Waypoint(0, 0, 0));
+        assertEquals(Field.SIZE, p.x(), EPS);
+        assertEquals(Field.SIZE, p.y(), EPS);
+        assertEquals(180, degrees(p), EPS);
     }
 }

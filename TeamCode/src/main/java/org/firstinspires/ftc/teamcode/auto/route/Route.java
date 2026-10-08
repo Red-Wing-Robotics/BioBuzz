@@ -8,7 +8,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-/** A parsed but not yet compiled route file. Waypoints are in the RED frame. */
+/** A parsed but not yet compiled route file. Waypoints are in the RED frame (docs/coordinates.md). */
 public final class Route {
     public final String name;
     public final Map<String, Waypoint> waypoints;

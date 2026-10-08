@@ -386,17 +386,6 @@ final class AutoRun {
         if (seconds > MapSettings.AUTO_SECONDS) {
             problems.add("Estimated " + secondsText(seconds) + ", over the 30 s AUTO.");
         }
-
-        if (alliance == Alliance.BLUE) {
-            Waypoint red = route.waypoints.get(route.start);
-            double dx = start.x() - (BiobuzzField.SIZE - red.x);
-            double dy = start.y() - (BiobuzzField.SIZE - red.y);
-            if (Math.hypot(dx, dy) > 0.5) {
-                problems.add(String.format(Locale.US,
-                        "Alliance.BLUE rotates about (72, 72), but the field centre is (%.2f, %.2f): every blue point is %.1f in off in x and y.",
-                        BiobuzzField.CENTER, BiobuzzField.CENTER, dx));
-            }
-        }
     }
 
     private boolean allOnOwnHalf(Poly p) {

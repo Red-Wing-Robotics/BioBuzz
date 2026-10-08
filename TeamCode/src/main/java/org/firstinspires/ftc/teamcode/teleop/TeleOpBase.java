@@ -55,8 +55,8 @@ public abstract class TeleOpBase extends OpMode {
     protected abstract ControlScheme scheme();
 
     /**
-     * Where the robot starts when no AUTO ran just before this TeleOp: RED frame, inches and
-     * degrees, mirrored for BLUE like auto waypoints. For practice, put the robot here before INIT.
+     * Where the robot starts when no AUTO ran just before this TeleOp: RED frame, mapped for BLUE
+     * like auto waypoints (docs/coordinates.md). For practice, put the robot here before INIT.
      */
     protected abstract Waypoint startWaypoint();
 

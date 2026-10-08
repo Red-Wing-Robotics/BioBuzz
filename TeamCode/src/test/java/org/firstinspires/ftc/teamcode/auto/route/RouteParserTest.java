@@ -1,30 +1,41 @@
 package org.firstinspires.ftc.teamcode.auto.route;
 
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import org.junit.Test;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.nio.file.Paths;
+import java.util.Map;
+import java.util.TreeMap;
 
 public class RouteParserTest {
 
-    static String asset(String name) throws IOException {
-        return new String(Files.readAllBytes(Paths.get("src/main/assets/autos/" + name + ".json")), StandardCharsets.UTF_8);
+    /**
+     * Every route file in assets/autos, by name. Tests on them check properties, never
+     * coordinates, so tuning a route doesn't break the build.
+     */
+    static Map<String, String> shippedRoutes() throws IOException {
+        File dir = new File("src/main/assets/autos");
+        File[] files = dir.listFiles((d, n) -> n.endsWith(".json"));
+        assertTrue("no route files in " + dir.getAbsolutePath(), files != null && files.length > 0);
+        Map<String, String> routes = new TreeMap<>();
+        for (File f : files) {
+            routes.put(f.getName(), new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8));
+        }
+        return routes;
     }
 
     @Test
-    public void parsesTheShippedRoute() throws IOException {
-        Route route = RouteParser.parse(asset("leave_and_park"));
-        assertEquals("Leave + Park", route.name);
-        assertEquals("START", route.start);
-        assertEquals(3, route.waypoints.size());
-        assertEquals(60, route.waypoints.get("START").y, 1e-9);
-        assertEquals(3, route.routine.size());
+    public void parsesEveryShippedRoute() throws IOException {
+        for (Map.Entry<String, String> file : shippedRoutes().entrySet()) {
+            Route route = RouteParser.parse(file.getValue());
+            assertTrue(file.getKey() + ": start waypoint", route.waypoints.containsKey(route.start));
+            assertTrue(file.getKey() + ": routine", route.routine.size() > 0);
+        }
     }
 
     private static void assertRejected(String json, String messagePart) {

@@ -3,6 +3,96 @@
 Short, dated entries. Newest first. Record *why*, not just *what*, so nobody (human or AI)
 re-proposes a rejected idea without knowing the history.
 
+## 2026-10-08 — TeleOp HIVE clearance raised from 15 in to 21 in
+
+On the robot, the shooting-spot assists went round the HIVE but drove close enough to get caught
+on it. At 15 in the robot's centre ran 15 in from the HIVE, and an 18 × 18 robot turned 45°
+reaches 12.7 in, leaving 2.3 in for path-following error, pose error, the image-measured HIVE
+footprint and anything sticking out of the robot. 21 in leaves 8.3 in; the route still keeps the
+robot's centre over 24 in from the walls. The left shooting spot (y 117) is now inside the grown
+zone, so that press goes round and then drives straight in from the zone's edge (y 118.6).
+Tried first because it's one number. If it still clips, next: hold the final heading while
+beside the HIVE (the heading now turns evenly over the whole route, so the robot is mid-turn
+alongside it), size the clearance from the measured robot, and a stop if the robot gets close.
+
+## 2026-10-04 — Field coordinates: Pedro's 144 in grid, defined once in docs/coordinates.md
+
+[docs/coordinates.md](coordinates.md) is now the only place the frame is defined: origin, axes,
+heading, size, the RED frame and the BLUE rotation. Code and docs link to it. The numbers live in
+`auto/Field` (`SIZE`, `CENTER`, `HIVE`). **The field is 144 in, centre (72, 72)**, which is
+Pedro's documented system: its coordinates page and FTC conversion, and the 2.x
+`PedroCoordinates` javadoc. The game manual's nominal size is also ≈ 144 in.
+
+Pedro's visualizer disagrees: it uses 141.5 (centre 70.75). Our auto maps had taken that scale
+for the BIOBUZZ image, so every map measurement was 1.8% small, and the map checker flagged
+`Alliance` (rotating about 72) as "2.5 in off". `Alliance` was right. The map geometry is now
+stored as image pixels and converted through `Field.fromImage`, so it follows `Field.SIZE`. The
+"blue centre" check is gone. If our real field measures differently, change `Field.SIZE` alone.
+
+The BIOBUZZ image confirms the field is rotationally symmetric, so BLUE is a 180° rotation
+(`Alliance`), not the visualizer's left/right mirror export.
+
+Consequence: Leave + Park's START (60, 132, −90) was placed to touch a 141.5 in far wall. At 144
+the auto map now reports a 3 in gap. That's left for the route owner to settle (move START, or
+measure the field).
+
+## 2026-10-04 — TeleOp assists drive round the HIVE; TeleOp has its own start pose
+
+**Avoidance.** `Steps.driveTo` drove one straight line, so a shooting-spot press from the other
+end of the HIVE drove into it. It now takes `KeepOut` rectangles and, when the line is blocked,
+follows the shortest way round them: straight legs via the rectangle's corners (a visibility
+graph, joined with `Paths.path(...)` so the heading still turns evenly over the whole way).
+`CompTeleOp` passes `Field.HIVE` (the structure's floor footprint, also what the auto maps
+draw) grown by `HiveClearance.inches`. That is 15 in: half an 18 in robot's diagonal, since it
+may be turned any way mid-path, plus 2.3 in for following error. It is `@Configurable`.
+Considered and rejected:
+- **Smooth curves through the corners (`Paths.through`):** they can bulge into the zone between
+  points. With straight legs, overshoot at a corner carries the robot away from the HIVE.
+- **A grid planner (A\*):** more code and tuning for one rectangle.
+
+Autos are unchanged. Routes are explicit and the auto maps already flag a path through the HIVE.
+
+**Start pose.** `leave_and_park.json`'s START moved to (60, 132, −90), but `CompTeleOp` still
+said its (8, 60, 0) start "is the Leave + Park START". A robot set up for the auto and then run in
+TeleOp without AUTO had its whole frame rotated 90°, and the shooting spots landed by the loading
+zone and across the field. TeleOp keeps **its own** practice start, (8, 60, 0), now documented as
+such (`docs/field.md`) and shown on the DS at INIT. After any AUTO, the pose handoff already
+starts TeleOp where the robot is.
+- **Rejected: reading Leave + Park's START at TeleOp INIT.** There will be many autos, and
+  TeleOp shouldn't depend on one of them.
+
+Also: the shooting spots' left/right were swapped (red drivers' left is +y), and their headings
+now point the front, where the launcher fires, at the HIVE.
+
+## 2026-10-04 — Route View is now called Jimothy
+
+The tool's user-facing name is **Jimothy**: page, icon (`tools/routeview/.../jimothy.svg`, brand
+notes in its readme), console and robot messages. Code names stay:
+- the `tools/routeview` folder and the `RouteView` / `RouteViewRemote` classes;
+- the robot's `/routeview/` endpoints and `X-RouteView` header.
+
+Renaming them would mean a robot redeploy and churn across files for no visible gain. Entries
+below say "Route View".
+
+## 2026-10-04 — Route View can INIT/START/STOP autonomous OpModes (dev builds only)
+
+So the route-tuning loop never leaves the laptop. `RouteViewRemote` (TeamCode dev source set)
+registers handlers on the robot app's own web server (`@WebHandlerRegistrar`, port 8080) and
+drives `OpModeManagerImpl` (`initOpMode` / `startActiveOpMode` / `stopActiveOpMode`, as Panels'
+opmodecontrol plugin does). Route View reaches it through `adb forward`, which works over Wi-Fi
+and USB. Safety (`RemoteRunGuard`, unit tested):
+- An OpMode started remotely stops after 30 s, and 1.5 s after Route View's 0.5 s status polls
+  stop.
+- One started on the Driver Station is left alone.
+- POSTs need an `X-RouteView` header, so another site's page can't drive the robot.
+- Someone stays at the robot with the Driver Station.
+
+Rejected:
+- **Panels' OpMode control protocol:** private and version-coupled.
+- **Calling 192.168.43.1:8080 directly:** wouldn't work over USB.
+
+Not in comp builds (R704). It uses SDK internals, so it may need fixing after an SDK update.
+
 ## 2026-10-04 — Route View: push routes on save, from a desktop tool in its own Gradle build
 
 Changing a route must be much faster than a full deploy, or the hub override loses its point.

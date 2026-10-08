@@ -18,9 +18,8 @@ import java.util.Map;
 
 /**
  * Draws the BIOBUZZ field and one auto's run onto a {@link Canvas} (a PDF page, or the SVG in
- * tools/routeview), to scale. Field inches map to page points with the origin at the field's
- * bottom-left (the corner by the red GARDEN), audience at the bottom, red alliance on the left,
- * as in the Pedro Pathing visualizer.
+ * tools/routeview), to scale, oriented as docs/coordinates.md draws it: origin bottom-left,
+ * audience at the bottom, red alliance on the left.
  */
 final class FieldPainter {
 
@@ -122,15 +121,21 @@ final class FieldPainter {
         page.fill(AMBER_TINT).stroke(AMBER).lineWidth(0.5);
         poly(BiobuzzField.DAMPER_HIGH).fillAndStroke();
         poly(BiobuzzField.DAMPER_LOW).fillAndStroke();
+        Poly beam = BiobuzzField.PIVOT_BEAM;
         page.fill(BEAM);
-        poly(BiobuzzField.PIVOT_BEAM).fillPath();
-        page.text(Font.BOLD, 5, WHITE, px(CENTER), py(70.1), Align.CENTER, "HIVE");
+        poly(beam).fillPath();
+        // White on the beam: a baseline 1.8 pt under its middle centres the 5 pt capitals on it.
+        page.text(Font.BOLD, 5, WHITE, px(CENTER), py((beam.minY() + beam.maxY()) / 2) - 1.8, Align.CENTER, "HIVE");
         for (double[] n : BiobuzzField.RED_START_NECTAR) {
             page.fill(RED).circle(px(n[0]), py(n[1]), 1.3 * k).fillPath();
             page.fill(BLUE).circle(px(SIZE - n[0]), py(SIZE - n[1]), 1.3 * k).fillPath();
         }
-        page.text(Font.REGULAR, 5, RED, px(58), py(64.6), Align.CENTER, "CELL up at start");
-        page.text(Font.REGULAR, 5, BLUE, px(SIZE - 58), py(SIZE - 64.6) - 3.5, Align.CENTER, "CELL up at start");
+        // Three quarters of the way up the CELL, toward the pivot and clear of the NECTAR; blue's is the 180° turn.
+        Poly up = BiobuzzField.RED_CELL_UP_AT_START;
+        double labelX = (up.minX() + up.maxX()) / 2;
+        double labelY = (up.minY() + 3 * up.maxY()) / 4;
+        page.text(Font.REGULAR, 5, RED, px(labelX), py(labelY), Align.CENTER, "CELL up at start");
+        page.text(Font.REGULAR, 5, BLUE, px(SIZE - labelX), py(SIZE - labelY) - 3.5, Align.CENTER, "CELL up at start");
     }
 
     private void cell(Poly cell, Color fill, Color line) {
@@ -144,7 +149,7 @@ final class FieldPainter {
         for (double t : ticks) {
             page.moveTo(px(t), py(0)).lineTo(px(t), py(0) - 3).strokePath();
             page.moveTo(px(0), py(t)).lineTo(px(0) - 3, py(t)).strokePath();
-            String label = t == SIZE ? "141.5" : String.valueOf((int) t);
+            String label = t == Math.rint(t) ? String.valueOf((int) t) : String.valueOf(t);
             page.text(Font.REGULAR, 6, MUTED, px(t), py(0) - 10, Align.CENTER, t == SIZE ? label + " in" : label);
             page.text(Font.REGULAR, 6, MUTED, px(0) - 5, py(t) - 2, Align.RIGHT, label);
         }

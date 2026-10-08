@@ -29,7 +29,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
 /**
- * Route View: watches the route files, checks and draws each one as the robot and docs/autos.pdf
+ * Jimothy (the tool in tools/routeview; code names say RouteView): watches the route files, checks and draws each one as the robot and docs/autos.pdf
  * would, pushes every saved route to the Control Hub over adb, and serves it all on
  * http://127.0.0.1:8765. See readme.md.
  *
@@ -45,6 +45,8 @@ public final class RouteView {
 
     private static final long POLL_MS = 200;
     private static final long HUB_POLL_MS = 2000;
+    /** Also the heartbeat that keeps an OpMode started from here running (RouteViewRemote). */
+    private static final long ROBOT_POLL_MS = 500;
     private static final int POLLS_PER_SOURCE_SCAN = 5;
     private static final String PUSHING = "saved · pushing…";
     /** Route names the editor may write: a plain file name, no paths. */
@@ -78,6 +80,7 @@ public final class RouteView {
     private final ScheduledExecutorService watcher = Executors.newSingleThreadScheduledExecutor(daemon("watcher"));
     private final ScheduledExecutorService hubThread = Executors.newSingleThreadScheduledExecutor(daemon("hub"));
     private final ExecutorService connector = Executors.newCachedThreadPool(daemon("connect"));
+    private final ScheduledExecutorService robotThread = Executors.newSingleThreadScheduledExecutor(daemon("robot"));
 
     // Written by the watcher; the editor's checks read it.
     private volatile RouteCheck.Registrations registrations;
@@ -98,6 +101,10 @@ public final class RouteView {
     private boolean connecting;
     /** A background (every 2 s) adb connect is under way. */
     private boolean autoConnecting;
+    /** RouteViewRemote in the robot app, while the hub is connected and adb forwards to it. */
+    private RobotLink robot;
+    private JsonObject robotStatus;
+    private String robotProblem;
     private long version = 1;
 
     RouteView(File repo, String serial, boolean autoPush) throws IOException {
@@ -136,7 +143,7 @@ public final class RouteView {
 
         File repo = new File("").getAbsoluteFile(); // the Gradle run task starts us in the repo root
         if (!new File(repo, AUTOS).isDirectory()) {
-            System.err.println("Route View: no " + AUTOS + " under " + repo + ". Run it with ./gradlew -p tools/routeview run");
+            System.err.println("Jimothy: no " + AUTOS + " under " + repo + ". Run it with ./gradlew -p tools/routeview run");
             System.exit(2);
         }
 
@@ -145,7 +152,7 @@ public final class RouteView {
         try {
             WebServer.start(view, port);
         } catch (BindException e) {
-            System.err.println("Route View: port " + port + " is in use (already running?). Use --args=\"--port 8766\".");
+            System.err.println("Jimothy: port " + port + " is in use (already running?). Use --args=\"--port 8766\".");
             System.exit(1);
         }
         view.start(url);
@@ -157,7 +164,7 @@ public final class RouteView {
     private void start(String url) {
         pollFiles(true);
         System.out.println();
-        System.out.println("Route View  " + url);
+        System.out.println("Jimothy  " + url);
         System.out.println("  routes  " + AUTOS);
         System.out.println("  hub     " + serial + (hub == null ? "  (" + hubMessage + ")" : "") + "   auto-push on save: " + (autoPush ? "on" : "off"));
         System.out.println();
@@ -169,6 +176,9 @@ public final class RouteView {
         watcher.scheduleWithFixedDelay(() -> pollFiles(false), POLL_MS, POLL_MS, TimeUnit.MILLISECONDS);
         if (hub != null) {
             hubThread.scheduleWithFixedDelay(this::checkHub, 0, HUB_POLL_MS, TimeUnit.MILLISECONDS);
+            robotThread.scheduleWithFixedDelay(this::pollRobot, ROBOT_POLL_MS, ROBOT_POLL_MS, TimeUnit.MILLISECONDS);
+            // Ctrl+C or the Gradle task stopped: otherwise each run leaves a forward on the hub.
+            Runtime.getRuntime().addShutdownHook(new Thread(this::removeForward, "unforward"));
         }
     }
 
@@ -324,8 +334,18 @@ public final class RouteView {
                 } catch (Hub.Failure f) {
                     problem = f.getMessage();
                 }
+                RobotLink link = null;
+                String linkProblem = null;
+                try {
+                    link = new RobotLink(hub.forwardWebServer());
+                } catch (Hub.Failure f) {
+                    linkProblem = f.getMessage();
+                }
                 List<String> pending = new ArrayList<>();
                 synchronized (this) {
+                    robot = link;
+                    robotStatus = null;
+                    robotProblem = linkProblem;
                     hubOnline = true;
                     hubFiles = files;
                     hubMessage = problem == null ? "connected" : "connected, but " + problem;
@@ -342,6 +362,7 @@ public final class RouteView {
                 }
             } else if (!online && was) {
                 synchronized (this) {
+                    dropRobot();
                     hubOnline = false;
                     hubFiles = null;
                     hubMessage = "not connected";
@@ -396,14 +417,27 @@ public final class RouteView {
 
     /** Drops adb's Wi-Fi connection to the hub and stops reconnecting until Connect. */
     private void disconnect() {
+        removeForward();
         String reply = hub.overNetwork() ? hub.disconnect() : null;
         synchronized (this) {
+            dropRobot();
             hubOnline = false;
             hubFiles = null;
             hubMessage = "disconnected; click Connect to reconnect";
             changed();
         }
         log("hub " + hub.serial + " disconnected (Disconnect clicked)" + (reply != null ? ": " + reply : ""));
+    }
+
+    /** Takes down the adb forward to the robot's web server, if there is one. */
+    private void removeForward() {
+        RobotLink link;
+        synchronized (this) {
+            link = robot;
+        }
+        if (link != null) {
+            hub.removeForward(link.port);
+        }
     }
 
     /** Pushes the route's current contents if they're valid and not already on the hub. */
@@ -532,6 +566,107 @@ public final class RouteView {
         }
     }
 
+    // ---- the robot app (robot thread) --------------------------------------------------------------
+
+    /** Every 0.5 s while connected: RouteViewRemote's status, which is also its heartbeat. */
+    private void pollRobot() {
+        try {
+            RobotLink link;
+            synchronized (this) {
+                link = robot;
+            }
+            if (link == null) {
+                return;
+            }
+            RobotLink.Answer answer = link.status();
+            synchronized (this) {
+                if (robot != link) {
+                    return; // the hub went away meanwhile
+                }
+                JsonObject body = answer.ok() ? answer.body : null;
+                String problem = answer.ok() ? RobotLink.protocolProblem(body) : answer.problem();
+                JsonObject status = problem == null ? body : null;
+                String before = robotSummary(robotStatus, robotProblem);
+                String after = robotSummary(status, problem);
+                robotStatus = status;
+                robotProblem = problem;
+                if (!after.equals(before)) {
+                    // Elapsed time alone doesn't wake the page; it counts locally between changes.
+                    logRobot(status, problem);
+                    changed();
+                }
+            }
+        } catch (RuntimeException e) {
+            log("robot: " + e); // keep the scheduled poll alive
+        }
+    }
+
+    /** INIT, START or STOP on the robot, from a web server thread so STOP never queues behind adb. */
+    RobotLink.Answer robotCommand(String command, String opMode) {
+        RobotLink link;
+        String problem;
+        synchronized (this) {
+            link = robot;
+            problem = robotProblem != null ? robotProblem : "the hub isn't connected";
+        }
+        if (link == null) {
+            return new RobotLink.Answer(0, null, problem);
+        }
+        RobotLink.Answer answer = command.equals("init") ? link.init(opMode)
+                : command.equals("start") ? link.start() : link.stop();
+        String what = "robot " + command.toUpperCase() + (opMode != null ? " " + opMode : "");
+        if (answer.ok()) {
+            log(what + ": accepted");
+        } else {
+            alarm(what + " refused: " + answer.problem());
+        }
+        robotThread.execute(this::pollRobot); // show the new state now, not at the next poll
+        return answer;
+    }
+
+    /** What the page shows about the robot, minus the ticking time. Holding the lock. */
+    private static String robotSummary(JsonObject status, String problem) {
+        if (status == null) {
+            return "problem: " + problem;
+        }
+        return text(status, "active") + "|" + text(status, "phase") + "|" + text(status, "sdkActive") + "|"
+                + text(status, "remote") + "|"
+                + text(status, "lastStop") + "|" + text(status, "lastEnded") + "|" + text(status, "error") + "|"
+                + status.get("opModes");
+    }
+
+    private static void logRobot(JsonObject status, String problem) {
+        if (status == null) {
+            log("robot: " + problem);
+            return;
+        }
+        String phase = text(status, "phase");
+        String stop = text(status, "lastStop");
+        String ended = text(status, "lastEnded");
+        String sdk = text(status, "sdkActive");
+        if (phase.equals("IDLE") && !sdk.isEmpty()) {
+            log("robot: " + sdk + " is active, but the robot's phase tracking didn't see it start");
+            return;
+        }
+        log("robot: " + (phase.equals("IDLE") ? "no OpMode active" + (stop.isEmpty() ? "" : " (" + stop + ")")
+                + (ended.isEmpty() ? "" : " · " + ended)
+                : phase + " " + text(status, "active")));
+        if (!text(status, "error").isEmpty()) {
+            alarm("robot error: " + text(status, "error"));
+        }
+    }
+
+    private static String text(JsonObject o, String key) {
+        return o.has(key) && !o.get(key).isJsonNull() ? o.get(key).getAsString() : "";
+    }
+
+    /** The hub went away. Holding the lock. */
+    private void dropRobot() {
+        robot = null;
+        robotStatus = null;
+        robotProblem = null;
+    }
+
     // ---- requests from the page (web server threads) -------------------------------------------
 
     void requestPush(String name) {
@@ -649,6 +784,14 @@ public final class RouteView {
             list.add(r);
         }
         out.add("routes", list);
+
+        JsonObject r = new JsonObject();
+        r.addProperty("available", robot != null && robotStatus != null);
+        r.addProperty("problem", robot == null && robotProblem == null && hubOnline ? "setting up…" : robotProblem);
+        if (robotStatus != null) {
+            r.add("status", robotStatus);
+        }
+        out.add("robot", r);
         return out;
     }
 

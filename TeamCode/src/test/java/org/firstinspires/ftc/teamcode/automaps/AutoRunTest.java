@@ -65,12 +65,6 @@ public class AutoRunTest {
     }
 
     @Test
-    public void blueIsCheckedAgainstTheTrueFieldCentre() {
-        AutoRun r = run(Alliance.BLUE, GOOD_WAYPOINTS, GOOD_ROUTINE);
-        assertTrue(r.problems.toString(), mentions(r, "Alliance.BLUE rotates about (72, 72)"));
-    }
-
-    @Test
     public void timeModelAndStepTimesAddUp() {
         // 12 in never reaches cruise speed: 2·sqrt(d/a) plus settle.
         assertEquals(2 * Math.sqrt(12 / MapSettings.ACCEL) + MapSettings.SETTLE, AutoRun.moveSeconds(12), 1e-9);

@@ -1,23 +1,21 @@
 # Field Reference
 
 Dimensions and rules: see [RULES.md](../RULES.md) §3. Field is ~144 in × 144 in; tiles are 24 in.
+Positions below are in inches at `Field.SIZE` = 144 ([coordinates.md](coordinates.md#field-size-144-and-where-1415-comes-from)).
 
-## Coordinate frame
+## Coordinates
 
-TODO: define the frame used for PedroPathing (origin, axis directions, units, heading zero).
-Every pose in this file and in code must use it.
-
-Autonomous waypoints are authored **once, in the RED frame** (`@Configurable` points classes in
-`opmodes/auto/`). `Alliance.BLUE` rotates them 180° about the field centre (72, 72). TODO: confirm
-the BIOBUZZ field is rotationally (not mirror) symmetric — GARDENs in opposite corners suggest it
-is; if not, switch `Alliance.BLUE` to `mirrorX(72)`.
+Every pose here uses the frame in **[coordinates.md](coordinates.md)**, the one definition: origin,
+axes, heading, field size, the RED frame and the BLUE rotation. Inches and degrees; poses marked
+"RED frame" are mapped for BLUE.
 
 ## Start poses
 
 | OpMode | Alliance | Position | Pose (x, y, heading) | Notes |
 |---|---|---|---|---|
 | | red | audience side | TODO | touching perimeter wall, columns A–C |
-| | red | far side | TODO | |
+| Leave + Park | red | far side | (60, 132, −90°) | meant to touch the far wall, facing the audience. On the 144 in field an 18 in robot touches it at y = 135; the auto map flags the 3 in gap |
+| TeleOp, no AUTO just before (practice) | red | red wall | (8, 60, 0°) | `CompTeleOp.START`: against the red alliance wall, facing the blue one. Not tied to any auto |
 | | blue | audience side | TODO | columns D–F |
 | | blue | far side | TODO | |
 
@@ -38,8 +36,11 @@ touching a FLOWER, within 18 in cube, contacting exactly 4 pre-loaded POLLEN.
 | Feature | Pose / dimensions | Notes |
 |---|---|---|
 | HIVE structure | field center; pivot 43.95 in above tiles | CELL opening 20 × 14 × 12 in |
+| HIVE floor footprint | x 47.3–96.7, y 46.4–97.6 | no robot fits here. Runtime truth: `auto/Field.HIVE`. TeleOp assists drive round it grown by `HiveClearance` (21 in) |
+| Red HIVE CELLs | x 48.8–69.1; ends at y 52.4–70.1 (up at start) and y 79.3–97.3 | from the visualizer image (`automaps/BiobuzzField`) |
+| Red LOADING ZONE | x 0–11.7, y 96.1–119.7 | on the red wall, drivers' left half |
 | FLOWER ×4 | on perimeter wall, top opening 21.5 in above tiles | TODO exact positions |
 | LOADING ZONE | 23 × 11 in at wall by alliance area | PARK target; NECTAR entry |
 | GARDEN | 23 × 2 in tape strip, opposite corners | 1 pt per ball |
-| Shooting spot, drivers' left | (48, 96, −45°) RED frame | **placeholder** — tune; runtime truth is `opmodes/teleop/ShootingSpots.java` |
-| Shooting spot, drivers' right | (48, 48, 45°) RED frame | **placeholder** — tune; TeleOp gp1 d-pad ← / → drives there and holds |
+| Shooting spot, drivers' left | (58, 117, −90°) RED frame | off the HIVE's far end, front (launcher) facing it. **Placeholder**, tune; runtime truth is `opmodes/teleop/ShootingSpots.java` |
+| Shooting spot, drivers' right | (58, 23, 90°) RED frame | off the HIVE's audience end, front facing it. **Placeholder**; TeleOp gp1 d-pad ← / → drives there (round the HIVE) and holds |

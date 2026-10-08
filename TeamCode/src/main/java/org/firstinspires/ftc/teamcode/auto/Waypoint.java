@@ -4,9 +4,9 @@ import com.pedropathing.api.PoseFactory;
 import com.pedropathing.math.Pose;
 
 /**
- * A field position for autonomous paths: inches and degrees, always written for the RED
- * alliance. Fields are public and non-final so Panels can edit them live when the holding class
- * is {@code @Configurable}. Convert to a Pedro {@link Pose} for an alliance with
+ * A field position: inches and degrees, always written for the RED alliance (the RED frame,
+ * docs/coordinates.md). Fields are public and non-final so Panels can edit them live when the
+ * holding class is {@code @Configurable}. Convert to a Pedro {@link Pose} for an alliance with
  * {@link Alliance#pose(Waypoint)}.
  */
 public class Waypoint {

@@ -9,7 +9,7 @@ Game rules summary: [RULES.md](RULES.md) — read it before designing any mechan
 - `FtcRobotController/` — the upstream FTC SDK. **Never edit it.** It is replaced wholesale on SDK updates. Its `external/samples/` folder is reference material only.
 - `build.dependencies.gradle` — the only shared gradle file we modify (third-party deps such as PedroPathing).
 - `docs/` — team knowledge: hardware map, field data, decision log.
-- `tools/routeview/` — **Route View**, a desktop tool (its own Gradle build, run with
+- `tools/routeview/` — **Jimothy** (code names: RouteView), a desktop tool (its own Gradle build, run with
   `./gradlew -p tools/routeview run`): live map and editor for the route files, and a push to the
   hub on every save. It compiles TeamCode's `auto/`, `auto/route/` and test `automaps/` sources itself
   (`TEAMCODE_SOURCES` in its `build.gradle`), so those must stay free of Android/SDK types. See
@@ -20,11 +20,12 @@ Game rules summary: [RULES.md](RULES.md) — read it before designing any mechan
 - `RobotHardware.java` — single source of truth for hardware config names and `hardwareMap` lookups. Never hardcode a config string anywhere else.
 - `subsystems/` — one class per mechanism (Drivetrain, Intake, Launcher, ...). Subsystems own their hardware and expose intent-level methods (`launch()`, `setIntake(...)`), not raw motor access.
 - `auto/` — autonomous engine: `JsonAutoOpMode` (routine from a JSON route file), `Step`/`Steps`,
-  `Waypoint`/`Alliance`, `route/` (parser, compiler, action registry, file loading). Format and
-  rules in `auto/readme.md`.
+  `Waypoint`/`Alliance`, `Field` (field size, centre, HIVE footprint), `KeepOut` (drive-around
+  zones), `route/` (parser, compiler, action registry, file loading). Format and rules in
+  `auto/readme.md`.
 - `TeamCode/src/main/assets/autos/*.json` — **the autonomous routines.** Waypoints + step list,
-  RED frame. A copy at `/sdcard/FIRST/autos/` on the hub overrides the APK one (no rebuild);
-  Route View pushes it on every save.
+  RED frame ([docs/coordinates.md](docs/coordinates.md)). A copy at `/sdcard/FIRST/autos/` on the hub overrides the APK one (no rebuild);
+  Jimothy pushes it on every save.
 - `opmodes/auto/` — one tiny `JsonAutoOpMode` subclass per route naming the file and registering
   subsystem actions; nested `Red`/`Blue` classes register both alliances.
 - `teleop/` — TeleOp engine: `TeleOpBase` (loop, drive, start pose, endgame cue),
@@ -36,7 +37,9 @@ Game rules summary: [RULES.md](RULES.md) — read it before designing any mechan
   belong in a scheme.
 - `pedro/` — PedroPathing constants (`Constants.java`).
 - `TeamCode/src/dev/java/` — **dev-only source set** (build variant `devDebug`): Pedro tuning
-  registrations/procedures and anything else that must not ship in a competition build.
+  registrations/procedures, `auto/RouteViewRemote` (Jimothy's remote INIT/START/STOP), and
+  anything else that must not ship in a competition build. Unit tests for dev-only code go in
+  `TeamCode/src/testDev/java` (the comp variant's tests must compile without it).
 - `util/` — hardware-free helpers (math, state machines, timers). Must be unit-testable.
 
 ## Conventions
@@ -51,6 +54,11 @@ Game rules summary: [RULES.md](RULES.md) — read it before designing any mechan
 - Autonomous: routines are JSON route files, not Java. New subsystem actions are exposed to
   routes by registering them in the OpMode's `registerActions`. Never sleep or loop inside a
   `Step`; the `AutoOpMode` loop drives everything.
+- Coordinates: [docs/coordinates.md](docs/coordinates.md) is the **one definition** of the field
+  frame (origin, axes, heading, 144 in size, RED frame, BLUE rotation). Code and docs link to it
+  rather than restating it. Field numbers live in `auto/Field.java`, and map geometry is measured
+  in visualizer-image pixels through `Field.fromImage`. Never hard-code the field size or centre;
+  use `Field.SIZE` / `Field.CENTER`.
 
 ## Libraries
 
@@ -74,11 +82,11 @@ Android Studio's Build Variants panel. Both must compile.
 ./gradlew :TeamCode:compileDevDebugJavaWithJavac :TeamCode:compileCompDebugJavaWithJavac  # fast check
 ./gradlew :TeamCode:testDevDebugUnitTest        # unit tests (TeamCode/src/test) — hardware-free
 ./gradlew :TeamCode:assembleDevDebug            # dev APK;  assembleCompDebug for competition
-./gradlew -p tools/routeview test               # Route View unit tests (also after auto/ or automaps/ changes)
+./gradlew -p tools/routeview test               # Jimothy unit tests (also after auto/ or automaps/ changes)
 ```
 
 A PostToolUse hook (`scripts/compile-check.sh`) recompiles TeamCode automatically after any
-Java edit, and Route View after edits to it or to the TeamCode sources it shares, and reports
+Java edit, and Jimothy after edits to it or to the TeamCode sources it shares, and reports
 errors back — but still run the unit tests yourself before declaring
 work done. Code is not done until it compiles and tests pass. There is no simulator — anything touching hardware can only be validated on the robot; say so explicitly when reporting.
 
@@ -98,5 +106,6 @@ work done. Code is not done until it compiles and tests pass. There is no simula
 ## Team knowledge
 
 - [docs/hardware.md](docs/hardware.md) — port map and config names. If it disagrees with `RobotHardware.java`, fix both.
-- [docs/field.md](docs/field.md) — AprilTag IDs, start poses, field coordinates.
+- [docs/coordinates.md](docs/coordinates.md) — the field coordinate system: the one definition.
+- [docs/field.md](docs/field.md) — AprilTag IDs, start poses, field positions (in that frame).
 - [docs/decisions.md](docs/decisions.md) — dated design decisions. Check before proposing a change of direction; add an entry when one is made.

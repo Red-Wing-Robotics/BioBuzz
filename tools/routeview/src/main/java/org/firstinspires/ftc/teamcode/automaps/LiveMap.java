@@ -12,7 +12,7 @@ import java.util.Map;
 /**
  * One alliance's page of docs/autos.pdf, for the browser: the field drawn by {@link FieldPainter}
  * as SVG, plus the {@link AutoRun} numbers (points, time, checks, routine, waypoints) as JSON.
- * Route View's only door into the auto-maps code, which is package-private.
+ * Jimothy's only door into the auto-maps code, which is package-private.
  */
 public final class LiveMap {
 

@@ -1,9 +1,9 @@
 {
   "name": "Leave + Park",
   "waypoints": {
-    "START": [8, 60, 0],
-    "LEAVE": [20, 60, 0],
-    "PARK":  [20, 20, 0]
+    "START": [60, 132, -90],
+    "LEAVE": [60, 108, -90],
+    "PARK":  [20, 108, -90]
   },
   "start": "START",
   "routine": [

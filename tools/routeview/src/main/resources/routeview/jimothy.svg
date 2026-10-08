@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <title>Jimothy</title>
+  <!-- Jimothy's icon (readme.md, "Brand"). Honey #F4B41A, ink #1B2027, white. Checked down to 16 px. -->
+  <defs>
+    <clipPath id="jimothy-body"><ellipse cx="42" cy="30" rx="9.5" ry="7.5"/></clipPath>
+  </defs>
+  <!-- a BioBuzz hive cell -->
+  <path d="M32 5 L55.4 18.5 L55.4 45.5 L32 59 L8.6 45.5 L8.6 18.5 Z" fill="#F4B41A" stroke="#F4B41A" stroke-width="6" stroke-linejoin="round"/>
+  <!-- the route: a start waypoint and a dotted flight path -->
+  <path d="M15.5 47.5 C 21.5 47.5, 23.5 40, 31 36" fill="none" stroke="#1B2027" stroke-width="4.2" stroke-linecap="round" stroke-dasharray="0.01 6.2" stroke-dashoffset="-2"/>
+  <circle cx="15.5" cy="47.5" r="4.6" fill="#1B2027"/>
+  <!-- Jimothy, flying it -->
+  <ellipse cx="36.5" cy="21" rx="5.6" ry="3.9" transform="rotate(-40 36.5 21)" fill="#FFFFFF" stroke="#1B2027" stroke-width="1.8"/>
+  <ellipse cx="45.5" cy="19.5" rx="5.6" ry="3.9" transform="rotate(15 45.5 19.5)" fill="#FFFFFF" stroke="#1B2027" stroke-width="1.8"/>
+  <ellipse cx="42" cy="30" rx="9.5" ry="7.5" fill="#1B2027"/>
+  <g clip-path="url(#jimothy-body)" fill="#F4B41A">
+    <rect x="37" y="21" width="3" height="18"/>
+    <rect x="43" y="21" width="3" height="18"/>
+  </g>
+  <circle cx="48.6" cy="28.4" r="1.4" fill="#FFFFFF"/>
+</svg>
