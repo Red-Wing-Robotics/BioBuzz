@@ -4,6 +4,7 @@ import static org.firstinspires.ftc.teamcode.auto.Field.fromImage;
 
 import org.firstinspires.ftc.teamcode.auto.Alliance;
 import org.firstinspires.ftc.teamcode.auto.Field;
+import org.firstinspires.ftc.teamcode.auto.KeepOut;
 import org.firstinspires.ftc.teamcode.automaps.Geometry.Poly;
 
 import java.util.Arrays;
@@ -36,10 +37,14 @@ final class BiobuzzField {
             hexagon(Field.IMAGE_PX - 18, Field.IMAGE_PX - 360),
             hexagon(Field.IMAGE_PX - 360, Field.IMAGE_PX - 1062));
 
-    /** Everything the HIVE structure covers on the floor: robots can't drive here. It's {@link Field#HIVE}, which TeleOp assists drive round. */
-    static final Poly HIVE_STRUCTURE = Poly.rect(Field.HIVE.minX, Field.HIVE.minY, Field.HIVE.maxX, Field.HIVE.maxY);
-    static final Poly FRAME_RAIL_RED = rect(356, 390, 370, 688);
-    static final Poly FRAME_RAIL_BLUE = FRAME_RAIL_RED.rotated(SIZE);
+    /**
+     * The HIVE structure's outline seen from above ({@link Field#HIVE}). The maps flag an auto that
+     * drives into it. TeleOp assists may use the lane under it between the rails (docs/decisions.md).
+     */
+    static final Poly HIVE_STRUCTURE = rect(Field.HIVE);
+    /** The frame rails, the HIVE's only parts on the floor ({@link Field#HIVE_FLOOR}). */
+    static final Poly FRAME_RAIL_RED = rect(Field.HIVE_RAIL_RED);
+    static final Poly FRAME_RAIL_BLUE = rect(Field.HIVE_RAIL_BLUE);
     static final Poly PIVOT_BEAM = rect(432, 533, 648, 547);
     static final Poly DAMPER_HIGH = rect(451, 553, 629, 571);
     static final Poly DAMPER_LOW = DAMPER_HIGH.rotated(SIZE);
@@ -67,6 +72,10 @@ final class BiobuzzField {
     /** A rectangle given by its corners in image pixels. */
     private static Poly rect(double x0, double y0, double x1, double y1) {
         return Poly.rect(fromImage(x0), fromImage(y0), fromImage(x1), fromImage(y1));
+    }
+
+    private static Poly rect(KeepOut k) {
+        return Poly.rect(k.minX, k.minY, k.maxX, k.maxY);
     }
 
     private static Poly hexagon(double cx, double cy) {

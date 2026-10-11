@@ -16,9 +16,12 @@ Assists (defined in `CompTeleOp.registerAssists`, so every variant has them):
 | left / right shooting spot | gp1 d-pad ← / → (both schemes) | drives to `ShootingSpots.left` (far end of the HIVE) / `.right` (audience end) and holds there until a drive stick moves or the button is pressed again |
 | return to start | gp1 B (Solo only) | drives to the start waypoint |
 
-Every driving assist goes **round the HIVE**, never through it: `Steps.driveTo` with
-`Field.HIVE` grown by `HiveClearance.inches` (21 in, live-editable in Panels; raise it if the
-robot clips a corner). `ShootingSpots` holds **placeholder** positions, live-editable in Panels;
+Every driving assist takes the **quickest way that keeps the whole robot clear of the HIVE's
+floor rails**, round the HIVE or through the lane under it: `Steps.driveTo` with
+`Field.HIVE_FLOOR` and `HiveClearance.margin` (8.3 in, live-editable in Panels; raise it if the
+robot clips a rail), planned by `auto/DrivePlan`. Beside a rail the robot holds a heading square
+to the field. Driving under the HIVE still needs a field check (overhead clearance, G409):
+docs/decisions.md, 2026-10-11. `ShootingSpots` holds **placeholder** positions, live-editable in Panels;
 its comment has the tuning steps. Positions are in the RED frame of `docs/coordinates.md`.
 
 - Button assignments live in `teleop/schemes/`, never here.

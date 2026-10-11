@@ -2,12 +2,17 @@ package org.firstinspires.ftc.teamcode.auto.route;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
+import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
-import com.google.gson.JsonSyntaxException;
+import com.google.gson.JsonPrimitive;
+import com.google.gson.stream.JsonReader;
+import com.google.gson.stream.JsonToken;
 
 import org.firstinspires.ftc.teamcode.auto.Waypoint;
 
+import java.io.IOException;
+import java.io.StringReader;
+import java.math.BigDecimal;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -22,22 +27,20 @@ import java.util.Map;
  *   "routine": [ step, step, ... ]               // see RouteCompiler for step syntax
  * }
  * </pre>
+ *
+ * The JSON must be strict: no comments or unquoted text, and no key twice in one object, so a
+ * waypoint defined twice is an error rather than a silent override.
  */
 public final class RouteParser {
 
     private RouteParser() {}
 
     public static Route parse(String json) {
-        JsonObject root;
-        try {
-            JsonElement element = new JsonParser().parse(json); // Gson 2.8.0 API (SDK-bundled)
-            if (!element.isJsonObject()) {
-                throw new RouteException("route: top level must be an object");
-            }
-            root = element.getAsJsonObject();
-        } catch (JsonSyntaxException e) {
-            throw new RouteException("route: invalid JSON — " + e.getMessage(), e);
+        JsonElement element = parseJson(json);
+        if (!element.isJsonObject()) {
+            throw new RouteException("route: top level must be an object");
         }
+        JsonObject root = element.getAsJsonObject();
 
         for (Map.Entry<String, JsonElement> entry : root.entrySet()) {
             String key = entry.getKey();
@@ -46,7 +49,11 @@ public final class RouteParser {
             }
         }
 
-        String name = root.has("name") ? root.get("name").getAsString() : "";
+        JsonElement nameElement = root.get("name");
+        if (nameElement != null && !isString(nameElement)) {
+            throw new RouteException("route: \"name\" must be a string");
+        }
+        String name = nameElement != null ? nameElement.getAsString() : "";
 
         JsonElement wps = root.get("waypoints");
         if (wps == null || !wps.isJsonObject()) {
@@ -61,7 +68,7 @@ public final class RouteParser {
         }
 
         JsonElement start = root.get("start");
-        if (start == null || !start.isJsonPrimitive()) {
+        if (start == null || !isString(start)) {
             throw new RouteException("route: \"start\" must name a waypoint");
         }
         if (!waypoints.containsKey(start.getAsString())) {
@@ -81,10 +88,80 @@ public final class RouteParser {
             throw new RouteException("waypoints." + name + ": must be [x, y, headingDeg]");
         }
         JsonArray a = value.getAsJsonArray();
-        try {
-            return new Waypoint(a.get(0).getAsDouble(), a.get(1).getAsDouble(), a.get(2).getAsDouble());
-        } catch (RuntimeException e) {
-            throw new RouteException("waypoints." + name + ": values must be numbers", e);
+        for (JsonElement v : a) {
+            if (!v.isJsonPrimitive() || !v.getAsJsonPrimitive().isNumber()) {
+                throw new RouteException("waypoints." + name + ": values must be numbers");
+            }
         }
+        return new Waypoint(a.get(0).getAsDouble(), a.get(1).getAsDouble(), a.get(2).getAsDouble());
+    }
+
+    private static boolean isString(JsonElement e) {
+        return e.isJsonPrimitive() && e.getAsJsonPrimitive().isString();
+    }
+
+    // ---- strict JSON ------------------------------------------------------------------
+
+    /**
+     * Gson 2.8.0's {@code JsonParser} (the SDK's) is always lenient and keeps the last of two
+     * equal keys, so this reads the tree itself with a strict {@link JsonReader}.
+     */
+    private static JsonElement parseJson(String json) {
+        JsonReader reader = new JsonReader(new StringReader(json));
+        try {
+            JsonElement element = read(reader);
+            if (reader.peek() != JsonToken.END_DOCUMENT) {
+                throw new RouteException("route: invalid JSON — more text after the end");
+            }
+            return element;
+        } catch (IOException e) {
+            String why = String.valueOf(e.getMessage())
+                    .replace("Use JsonReader.setLenient(true) to accept malformed JSON", "unexpected text");
+            throw new RouteException("route: invalid JSON — " + why, e);
+        }
+    }
+
+    private static JsonElement read(JsonReader in) throws IOException {
+        switch (in.peek()) {
+            case BEGIN_OBJECT: {
+                JsonObject object = new JsonObject();
+                in.beginObject();
+                while (in.hasNext()) {
+                    String key = in.nextName();
+                    if (object.has(key)) {
+                        throw new RouteException(location(in) + ": defined twice");
+                    }
+                    object.add(key, read(in));
+                }
+                in.endObject();
+                return object;
+            }
+            case BEGIN_ARRAY: {
+                JsonArray array = new JsonArray();
+                in.beginArray();
+                while (in.hasNext()) {
+                    array.add(read(in));
+                }
+                in.endArray();
+                return array;
+            }
+            case STRING:
+                return new JsonPrimitive(in.nextString());
+            case NUMBER:
+                return new JsonPrimitive(new BigDecimal(in.nextString())); // exact, and 3 stays an int for args
+            case BOOLEAN:
+                return new JsonPrimitive(in.nextBoolean());
+            case NULL:
+                in.nextNull();
+                return JsonNull.INSTANCE;
+            default:
+                throw new RouteException("route: invalid JSON — unexpected " + in.peek() + " at " + location(in));
+        }
+    }
+
+    /** Where the reader is, written like the other messages: {@code waypoints.START}, {@code routine[2]}. */
+    private static String location(JsonReader in) {
+        String path = in.getPath();
+        return path.startsWith("$.") ? path.substring(2) : path;
     }
 }

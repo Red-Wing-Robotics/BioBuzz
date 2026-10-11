@@ -23,4 +23,11 @@ public class MathUtilTest {
         assertEquals(0.0, MathUtil.deadband(0.05, 0.05), EPS);
         assertEquals(0.5, MathUtil.deadband(0.525, 0.05), EPS);
     }
+
+    @Test
+    public void clampKeepsValuesInRange() {
+        assertEquals(0.0, MathUtil.clamp(-0.5, 0, 1), EPS);
+        assertEquals(0.3, MathUtil.clamp(0.3, 0, 1), EPS);
+        assertEquals(1.0, MathUtil.clamp(2.0, 0, 1), EPS);
+    }
 }

@@ -28,7 +28,7 @@ import fi.iki.elonen.NanoHTTPD;
  *
  * <pre>
  * GET  /routeview/status        protocol, active OpMode, its phase, the autonomous OpModes; also the heartbeat
- * POST /routeview/init?name=X   INIT an OpMode (only when none is active)
+ * POST /routeview/init?name=X   INIT an autonomous OpMode (only when none is active)
  * POST /routeview/start         START the OpMode in INIT
  * POST /routeview/stop          stop the active OpMode
  * </pre>
@@ -141,8 +141,13 @@ public final class RouteViewRemote {
     }
 
     private static String init(String name) {
-        if (name == null || RegisteredOpModes.getInstance().getOpModeMetadata(name) == null) {
+        OpModeMeta meta = name == null ? null : RegisteredOpModes.getInstance().getOpModeMetadata(name);
+        if (meta == null) {
             return "no OpMode named \"" + name + "\" on the robot";
+        }
+        if (meta.flavor != OpModeMeta.Flavor.AUTONOMOUS) {
+            // The guard's 30 s limit is an AUTO's; TeleOps and tuners belong to the Driver Station.
+            return name + " isn't an autonomous OpMode; run it from the Driver Station";
         }
         String running = sdkActive();
         if (running != null) {

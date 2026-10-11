@@ -3,18 +3,19 @@ package org.firstinspires.ftc.teamcode.opmodes.teleop;
 import com.bylazar.configurables.annotations.Configurable;
 
 /**
- * How far the robot's centre stays from the HIVE structure ({@code Field.HIVE}) when
- * CompTeleOp's assists drive somewhere: they go round the HIVE grown by this much instead of
- * through it. Inches.
+ * How close CompTeleOp's driving assists let any part of the robot come to the HIVE's floor parts
+ * ({@code Field.HIVE_FLOOR}), inches. They take the quickest way that keeps this gap, round the
+ * HIVE or through the lane under it ({@code DrivePlan}).
  *
- * 21 = half the diagonal of an 18 × 18 in robot (12.7: the robot may be turned any way on the
- * path) + 8.3 for path-following and pose error. 15 (2.3 of margin) got the robot caught on the
- * HIVE. Revisit once the real robot size is measured. Panels edits apply on the next button press.
+ * 8.3: the gap that 21 in from the robot's centre left an 18 × 18 robot turned 45°, which stopped
+ * it getting caught on the HIVE (2026-10-08). Raise it if the robot clips a rail. For an 18 in
+ * wide robot the lane closes above 13.6, and every assist then goes round. Panels edits apply on
+ * the next button press.
  */
 @Configurable
 public final class HiveClearance {
 
-    public static double inches = 21;
+    public static double margin = 8.3;
 
     private HiveClearance() {}
 }

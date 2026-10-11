@@ -1,8 +1,6 @@
 package org.firstinspires.ftc.teamcode.auto;
 
-import com.pedropathing.api.Paths;
 import com.pedropathing.math.Pose;
-import com.pedropathing.math.Vector2D;
 import com.pedropathing.paths.Path;
 
 import java.util.ArrayList;
@@ -80,31 +78,13 @@ public final class Steps {
 
     /**
      * Drives from wherever the robot is when the step starts to {@code target} (alliance frame),
-     * turning to its heading on the way: a straight line, or the shortest way round any
-     * {@code keepOuts} that line would cross (see {@link KeepOut#route}). For TeleOp assists,
-     * whose start isn't known in advance. Finishes at once if the robot is already within 1 in of
-     * the target.
+     * ending at its heading: the quickest way that keeps every part of the robot {@code margin}
+     * inches from the {@code obstacles}, round them or between them ({@link DrivePlan}). For
+     * TeleOp assists, whose start isn't known in advance. Finishes at once if the robot is already
+     * there.
      */
-    public static Step driveTo(String name, Pose target, KeepOut... keepOuts) {
-        return new DriveTo(name, target, Arrays.asList(keepOuts));
-    }
-
-    /**
-     * The path {@link #driveTo} follows: straight lines through {@link KeepOut#route}'s points,
-     * heading turning evenly over the whole way from {@code from}'s to {@code target}'s.
-     */
-    static Path pathTo(Pose from, Pose target, List<KeepOut> keepOuts) {
-        List<double[]> points = KeepOut.route(from.x(), from.y(), target.x(), target.y(), keepOuts);
-        if (points.size() == 2) {
-            return Paths.line(from, target).linear(from, target);
-        }
-        Path[] legs = new Path[points.size() - 1];
-        for (int i = 0; i < legs.length; i++) {
-            double[] a = points.get(i);
-            double[] b = points.get(i + 1);
-            legs[i] = Paths.line(Vector2D.cartesian(a[0], a[1]), Vector2D.cartesian(b[0], b[1]));
-        }
-        return Paths.path(legs).linear(from, target);
+    public static Step driveTo(String name, Pose target, List<KeepOut> obstacles, double margin) {
+        return new DriveTo(name, target, obstacles, margin);
     }
 
     // ---- implementations ------------------------------------------------------------
@@ -326,37 +306,58 @@ public final class Steps {
     }
 
     static final class DriveTo implements Step {
-        private static final double ARRIVED_INCHES = 1.0;
-
         private final String name;
         private final Pose target;
-        private final List<KeepOut> keepOuts;
-        private boolean moving;
+        private final List<KeepOut> obstacles;
+        private final double margin;
+        private List<DrivePlan.Part> parts;
+        private int index;
 
-        DriveTo(String name, Pose target, List<KeepOut> keepOuts) {
+        DriveTo(String name, Pose target, List<KeepOut> obstacles, double margin) {
             this.name = name;
             this.target = target;
-            this.keepOuts = keepOuts;
+            this.obstacles = obstacles;
+            this.margin = margin;
         }
 
         @Override
         public void start(AutoContext ctx) {
-            Pose from = ctx.follower.pose();
-            // A zero-length path has no direction to follow, so "already there" is simply done.
-            moving = Math.hypot(target.x() - from.x(), target.y() - from.y()) >= ARRIVED_INCHES;
-            if (moving) {
-                ctx.follower.follow(pathTo(from, target, keepOuts));
+            parts = DrivePlan.plan(ctx.follower.pose(), target, obstacles, margin).parts;
+            index = 0;
+            begin(ctx);
+        }
+
+        /** Starts the current part: follow its path, or hold where the robot is at the new heading. */
+        private void begin(AutoContext ctx) {
+            if (index < parts.size()) {
+                DrivePlan.Part part = parts.get(index);
+                if (part.isTurn()) {
+                    ctx.follower.hold(ctx.follower.pose().withHeading(part.heading));
+                } else {
+                    ctx.follower.follow(part.path);
+                }
             }
         }
 
         @Override
         public boolean update(AutoContext ctx) {
-            return !moving || !ctx.follower.following();
+            while (index < parts.size()) {
+                DrivePlan.Part part = parts.get(index);
+                boolean done = part.isTurn()
+                        ? Math.abs(DrivePlan.wrap(ctx.follower.pose().heading() - part.heading)) < DrivePlan.TURNED
+                        : !ctx.follower.following();
+                if (!done) {
+                    return false;
+                }
+                index++;
+                begin(ctx);
+            }
+            return true;
         }
 
         @Override
         public void end(AutoContext ctx, boolean interrupted) {
-            if (interrupted && moving) {
+            if (interrupted && index < parts.size()) {
                 ctx.follower.stop();
             }
         }

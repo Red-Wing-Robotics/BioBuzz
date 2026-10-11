@@ -46,7 +46,7 @@ public abstract class ControlScheme {
     protected static void robotCentricDrive(DriverInput in, Binding forward, Binding strafe,
                                             Binding turn, Binding slow, DriverCommands out) {
         out.slow = in.held(slow);
-        double scale = out.slow ? DriveFeel.slowScale : 1.0;
+        double scale = out.slow ? DriveFeel.slowModeScale() : 1.0;
         // Sticks read up/right as positive; Pedro's +strafe is left and +turn is counter-clockwise.
         out.forward = DriveFeel.shape(in.value(forward)) * scale;
         out.strafe = -DriveFeel.shape(in.value(strafe)) * scale;

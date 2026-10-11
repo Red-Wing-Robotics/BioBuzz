@@ -6,11 +6,13 @@ import com.qualcomm.robotcore.hardware.HardwareMap;
 import java.util.List;
 
 /**
- * Single source of truth for hardware configuration names and device lookups.
+ * Single source of truth for the competition robot's hardware configuration names and device
+ * lookups.
  *
  * Config names must match the Robot Controller configuration exactly and are
  * documented in docs/hardware.md. Subsystems receive devices from here; nothing
- * else in TeamCode should call hardwareMap.get(...) with a string literal.
+ * else in TeamCode should call hardwareMap.get(...) with a string literal. The StarterBot, a
+ * separate robot, has its own names in opmodes/starterbot/StarterBotHardware.
  */
 public class RobotHardware {
 

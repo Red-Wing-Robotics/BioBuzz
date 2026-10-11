@@ -36,14 +36,14 @@ import java.util.Set;
  * { "action": "shooter.spinUp", "args": { ... } }
  * { "hold": "WAYPOINT", "timeout": seconds }               // timeout required
  *
- * modifiers on any step:  "name": "shown on DS",  "timeout": seconds
+ * modifiers on any step:  "name": "shown on DS",  "timeout": seconds   ("args" only with "action")
  * </pre>
  */
 public final class RouteCompiler {
 
     private static final Set<String> KINDS = new HashSet<>(Arrays.asList(
             "sequence", "parallel", "race", "follow", "wait", "waitUntil", "action", "hold"));
-    private static final Set<String> MODIFIERS = new HashSet<>(Arrays.asList("name", "timeout", "args"));
+    private static final Set<String> MODIFIERS = new HashSet<>(Arrays.asList("name", "timeout"));
     private static final Set<String> PATH_KINDS = new HashSet<>(Arrays.asList("line", "curve", "through"));
 
     private final Alliance alliance;
@@ -100,12 +100,16 @@ public final class RouteCompiler {
                     throw new RouteException(at + ": has both \"" + kind + "\" and \"" + key + "\" — one kind per step");
                 }
                 kind = key;
-            } else if (!MODIFIERS.contains(key)) {
-                throw new RouteException(at + ": unknown key \"" + key + "\" (kinds: " + KINDS + ", modifiers: " + MODIFIERS + ")");
+            } else if (!MODIFIERS.contains(key) && !key.equals("args")) {
+                throw new RouteException(at + ": unknown key \"" + key + "\" (kinds: " + KINDS + ", modifiers: " + MODIFIERS
+                        + ", and \"args\" with \"action\")");
             }
         }
         if (kind == null) {
             throw new RouteException(at + ": needs one of " + KINDS);
+        }
+        if (step.has("args") && !kind.equals("action")) {
+            throw new RouteException(at + ": \"args\" goes only with \"action\", not \"" + kind + "\"");
         }
         String kindAt = at + "." + kind;
         JsonElement value = step.get(kind);
@@ -230,17 +234,18 @@ public final class RouteCompiler {
                 throw new RouteException(at + ": use exactly one of constant, linear, facing");
             }
             if (h.has("constant")) {
-                return path.constant(headingRadians(h.get("constant").getAsDouble()));
+                return path.constant(headingRadians(degrees(h.get("constant"), at + ".constant")));
             }
             if (h.has("linear")) {
-                JsonArray pair = h.get("linear").getAsJsonArray();
-                if (pair.size() != 2) {
+                JsonElement pair = h.get("linear");
+                if (!pair.isJsonArray() || pair.getAsJsonArray().size() != 2) {
                     throw new RouteException(at + ".linear: needs [fromDeg, toDeg]");
                 }
-                return path.linear(headingRadians(pair.get(0).getAsDouble()), headingRadians(pair.get(1).getAsDouble()));
+                return path.linear(headingRadians(degrees(pair.getAsJsonArray().get(0), at + ".linear[0]")),
+                        headingRadians(degrees(pair.getAsJsonArray().get(1), at + ".linear[1]")));
             }
             if (h.has("facing")) {
-                return path.facingPoint(pose(h.get("facing").getAsString(), at + ".facing"));
+                return path.facingPoint(pose(string(h.get("facing"), at + ".facing"), at + ".facing"));
             }
         }
         throw new RouteException(at + ": expected \"tangent\", \"reverseTangent\", or { constant | linear | facing }");
@@ -294,6 +299,13 @@ public final class RouteCompiler {
             throw new RouteException(at + ": must be a string");
         }
         return element.getAsString();
+    }
+
+    private static double degrees(JsonElement element, String at) {
+        if (element == null || !element.isJsonPrimitive() || !element.getAsJsonPrimitive().isNumber()) {
+            throw new RouteException(at + ": must be a number of degrees");
+        }
+        return element.getAsDouble();
     }
 
     private static double seconds(JsonElement element, String at) {

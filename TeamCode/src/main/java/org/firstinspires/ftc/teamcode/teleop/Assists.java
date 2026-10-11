@@ -22,8 +22,9 @@ import java.util.function.Supplier;
  *
  * <ul>
  * <li>Pressed: starts the assist; pressing again cancels it. It ends when its Step finishes.</li>
- * <li>Held: runs while the button is held; release cancels it. If it finishes while still held,
- *     it doesn't restart until the button is released and held again.</li>
+ * <li>Held: runs while the button is held; release cancels it. If it finishes, or something else
+ *     interrupts it (a drive stick, another assist taking a resource), while still held, it doesn't
+ *     restart until the button is released and held again.</li>
  * <li>Starting an assist interrupts any running assist that shares a resource with it. Assists
  *     with no resources in common run together.</li>
  * <li>An {@link Definition#endgameOnly() endgame-only} assist won't start before 1:00 remains.</li>
@@ -71,7 +72,8 @@ public final class Assists {
 
     private final Map<String, Definition> definitions = new LinkedHashMap<>();
     private final List<Running> running = new ArrayList<>();
-    private final Set<String> finishedWhileHeld = new HashSet<>();
+    /** Held assists that ended while their button stayed down: they start again only after a release. */
+    private final Set<String> waitingForRelease = new HashSet<>();
     private String notice;
     private double noticeTime;
 
@@ -126,19 +128,19 @@ public final class Assists {
                 r.step.end(ctx, true);
             }
         }
-        finishedWhileHeld.retainAll(held);
+        waitingForRelease.retainAll(held);
 
         for (String name : commands.pressedAssists()) {
             Running r = find(name);
             if (r != null) {
                 running.remove(r);
-                r.step.end(ctx, true);
+                interrupt(r, ctx);
             } else {
                 start(name, false, ctx, endgame);
             }
         }
         for (String name : held) {
-            if (find(name) == null && !finishedWhileHeld.contains(name)) {
+            if (find(name) == null && !waitingForRelease.contains(name)) {
                 start(name, true, ctx, endgame);
             }
         }
@@ -150,7 +152,7 @@ public final class Assists {
             Running r = it.next();
             if (r.definition.uses.contains(resource)) {
                 it.remove();
-                r.step.end(ctx, true);
+                interrupt(r, ctx);
             }
         }
     }
@@ -170,7 +172,7 @@ public final class Assists {
                 it.remove();
                 r.step.end(ctx, false);
                 if (r.held) {
-                    finishedWhileHeld.add(r.definition.name);
+                    waitingForRelease.add(r.definition.name);
                 }
             }
         }
@@ -190,7 +192,7 @@ public final class Assists {
             Running r = it.next();
             if (!Collections.disjoint(r.definition.uses, definition.uses)) {
                 it.remove();
-                r.step.end(ctx, true);
+                interrupt(r, ctx);
             }
         }
         Step step = definition.factory.get();
@@ -199,6 +201,18 @@ public final class Assists {
         }
         step.start(ctx);
         running.add(new Running(definition, step, held));
+    }
+
+    /**
+     * Ends a running assist early (the caller has removed it). A held one then waits for its
+     * button to come up; otherwise it would start again next loop, and a stick touch or a rival
+     * assist would restart it every loop.
+     */
+    private void interrupt(Running r, AutoContext ctx) {
+        r.step.end(ctx, true);
+        if (r.held) {
+            waitingForRelease.add(r.definition.name);
+        }
     }
 
     private Running find(String name) {

@@ -5,7 +5,6 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
 import org.firstinspires.ftc.teamcode.auto.Alliance;
 import org.firstinspires.ftc.teamcode.auto.Field;
-import org.firstinspires.ftc.teamcode.auto.KeepOut;
 import org.firstinspires.ftc.teamcode.auto.Step;
 import org.firstinspires.ftc.teamcode.auto.Steps;
 import org.firstinspires.ftc.teamcode.auto.Waypoint;
@@ -50,22 +49,20 @@ public abstract class CompTeleOp extends TeleOpBase {
     protected void registerAssists(Assists assists) {
         // ShootingSpots and HiveClearance are read at each press, so Panels edits apply on the next press.
         assists.define(Assist.RETURN_TO_START, EnumSet.of(Resource.DRIVE),
-                () -> Steps.driveTo("start", startPose(), hive()));
+                () -> Steps.driveTo("start", startPose(), Field.HIVE_FLOOR, HiveClearance.margin));
         assists.define(Assist.SHOOT_LEFT, EnumSet.of(Resource.DRIVE),
                 () -> driveToAndHold("left spot", ShootingSpots.left));
         assists.define(Assist.SHOOT_RIGHT, EnumSet.of(Resource.DRIVE),
                 () -> driveToAndHold("right spot", ShootingSpots.right));
     }
 
-    /** Drive to a spot, then hold it against bumps while the operator fires, until a drive stick moves. */
+    /**
+     * Drive to a spot the quickest way, round the HIVE or under it, then hold it against bumps
+     * while the operator fires, until a drive stick moves.
+     */
     private Step driveToAndHold(String name, Waypoint spot) {
         Pose target = alliance().pose(spot);
-        return Steps.sequence(Steps.driveTo(name, target, hive()), Steps.hold(name, target));
-    }
-
-    /** Where the robot's centre must not go: the HIVE plus {@link HiveClearance}. */
-    private static KeepOut hive() {
-        return Field.HIVE.grow(HiveClearance.inches);
+        return Steps.sequence(Steps.driveTo(name, target, Field.HIVE_FLOOR, HiveClearance.margin), Steps.hold(name, target));
     }
 
     @Override

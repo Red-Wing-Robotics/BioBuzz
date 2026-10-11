@@ -17,11 +17,12 @@ Game rules summary: [RULES.md](RULES.md) — read it before designing any mechan
 
 ## Code structure (TeamCode)
 
-- `RobotHardware.java` — single source of truth for hardware config names and `hardwareMap` lookups. Never hardcode a config string anywhere else.
+- `RobotHardware.java` — single source of truth for the competition robot's hardware config names and `hardwareMap` lookups. Never hardcode a config string anywhere else.
 - `subsystems/` — one class per mechanism (Drivetrain, Intake, Launcher, ...). Subsystems own their hardware and expose intent-level methods (`launch()`, `setIntake(...)`), not raw motor access.
 - `auto/` — autonomous engine: `JsonAutoOpMode` (routine from a JSON route file), `Step`/`Steps`,
-  `Waypoint`/`Alliance`, `Field` (field size, centre, HIVE footprint), `KeepOut` (drive-around
-  zones), `route/` (parser, compiler, action registry, file loading). Format and rules in
+  `Waypoint`/`Alliance`, `Field` (field size, centre, HIVE outline and floor rails), `KeepOut`
+  (rectangles and the way round them), `DrivePlan` (TeleOp assist routes), `RobotSize`,
+  `route/` (parser, compiler, action registry, file loading). Format and rules in
   `auto/readme.md`.
 - `TeamCode/src/main/assets/autos/*.json` — **the autonomous routines.** Waypoints + step list,
   RED frame ([docs/coordinates.md](docs/coordinates.md)). A copy at `/sdcard/FIRST/autos/` on the hub overrides the APK one (no rebuild);
@@ -36,6 +37,9 @@ Game rules summary: [RULES.md](RULES.md) — read it before designing any mechan
   assist definitions, and `DriverCommands` → subsystem calls. Never read gamepads here; bindings
   belong in a scheme.
 - `pedro/` — PedroPathing constants (`Constants.java`).
+- `opmodes/starterbot/` — OpModes for the goBILDA **StarterBot**, a different robot with its own
+  RC config. Its config names are in `StarterBotHardware`, not `RobotHardware`. It's a vendored
+  sample, so the competition conventions don't apply. See its readme.
 - `TeamCode/src/dev/java/` — **dev-only source set** (build variant `devDebug`): Pedro tuning
   registrations/procedures, `auto/RouteViewRemote` (Jimothy's remote INIT/START/STOP), and
   anything else that must not ship in a competition build. Unit tests for dev-only code go in
@@ -45,7 +49,7 @@ Game rules summary: [RULES.md](RULES.md) — read it before designing any mechan
 ## Conventions
 
 - Java 8 source level (SDK constraint): no `var`, records, switch expressions, or text blocks.
-- Annotate OpModes with `@TeleOp(name=..., group=...)` / `@Autonomous(name=..., group=..., preselectTeleOp=...)`. Groups: `"comp"` for match OpModes, `"tune"` for tuning, `"test"` for experiments.
+- Annotate OpModes with `@TeleOp(name=..., group=...)` / `@Autonomous(name=..., group=..., preselectTeleOp=...)`. Groups: `"comp"` for match OpModes, `"tune"` for tuning, `"test"` for experiments, `"starterbot"` for the StarterBot (name prefix `StarterBot:`).
 - Copy patterns from the SDK samples in `FtcRobotController/src/main/java/org/firstinspires/ftc/robotcontroller/external/samples/` rather than recalling API usage from memory. Key samples: `SensorLimelight3A`, `ConceptAprilTag*`, `SensorGoBildaPinpoint`, `ConceptMotorBulkRead`, `RobotTeleopMecanumFieldRelativeDrive`.
 - Enable bulk reads on every hub (`LynxModule.BulkCachingMode.MANUAL` + `clearBulkCache()` once per loop — see `ConceptMotorBulkRead`). Cycle time is the top optimization target.
 - No blocking `sleep()` in TeleOp loops; use timers/state machines.

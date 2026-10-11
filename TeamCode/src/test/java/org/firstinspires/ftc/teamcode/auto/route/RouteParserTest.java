@@ -1,5 +1,6 @@
 package org.firstinspires.ftc.teamcode.auto.route;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -54,5 +55,33 @@ public class RouteParserTest {
         assertRejected("{\"waypoints\":{\"A\":[0,0]},\"start\":\"A\",\"routine\":[]}", "[x, y, headingDeg]");
         assertRejected("{\"waypoints\":{\"A\":[0,0,0]},\"start\":\"A\"}", "\"routine\"");
         assertRejected("{\"waypoints\":{\"A\":[0,0,0]},\"start\":\"A\",\"routine\":[],\"typo\":1}", "unknown key \"typo\"");
+        assertRejected("{\"name\":{},\"waypoints\":{\"A\":[0,0,0]},\"start\":\"A\",\"routine\":[]}", "\"name\" must be a string");
+        assertRejected("{\"waypoints\":{\"A\":[0,0,0]},\"start\":1,\"routine\":[]}", "\"start\" must name a waypoint");
+        assertRejected("{\"waypoints\":{\"A\":[\"0\",0,0]},\"start\":\"A\",\"routine\":[]}", "waypoints.A: values must be numbers");
+    }
+
+    @Test
+    public void rejectsAWaypointDefinedTwice() {
+        // Gson's own parser would keep the second one without a word.
+        assertRejected("{\"waypoints\":{\"A\":[0,0,0],\"A\":[9,9,9]},\"start\":\"A\",\"routine\":[]}", "waypoints.A: defined twice");
+    }
+
+    @Test
+    public void rejectsJsonThatOnlyALenientParserAccepts() {
+        String ok = "{\"waypoints\":{\"A\":[0,0,0]},\"start\":\"A\",\"routine\":[]}";
+        RouteParser.parse(ok);
+        assertRejected("// note\n" + ok, "invalid JSON");
+        assertRejected(ok.replace("\"start\"", "start"), "invalid JSON");   // unquoted key
+        assertRejected(ok + " {}", "invalid JSON");                        // a second document
+        assertRejected("", "invalid JSON");
+    }
+
+    @Test
+    public void numbersKeepTheirValueForActionArgs() {
+        Route route = RouteParser.parse("{\"waypoints\":{\"A\":[1.5,-2,90]},\"start\":\"A\","
+                + "\"routine\":[{\"action\":\"shooter.fire\",\"args\":{\"count\":3}}]}");
+        assertEquals(1.5, route.waypoints.get("A").x, 0);
+        assertEquals(-2, route.waypoints.get("A").y, 0);
+        assertEquals(3, route.routine.get(0).getAsJsonObject().getAsJsonObject("args").get("count").getAsInt());
     }
 }

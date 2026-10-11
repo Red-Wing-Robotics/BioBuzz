@@ -16,4 +16,9 @@ public final class MathUtil {
         double sign = Math.signum(value);
         return sign * (Math.abs(value) - threshold) / (1.0 - threshold);
     }
+
+    /** {@code value} limited to {@code min}–{@code max}. */
+    public static double clamp(double value, double min, double max) {
+        return Math.max(min, Math.min(max, value));
+    }
 }

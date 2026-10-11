@@ -96,6 +96,33 @@ public class AssistsTest {
     }
 
     @Test
+    public void heldAssistCancelledByTheSticksWaitsForRelease() {
+        assists.define("aim", EnumSet.of(Resource.DRIVE), ticks("aim", 10));
+        loop(c -> c.hold("aim"));
+        assists.cancel(Resource.DRIVE, ctx);         // a drive stick moved
+        loop(c -> c.hold("aim"));                    // still held: no restart
+        loop(c -> c.hold("aim"));
+        assertFalse(assists.isRunning("aim"));
+        assertEquals(Arrays.asList("aim:start", "aim:interrupted"), log);
+
+        loop(NOTHING);
+        loop(c -> c.hold("aim"));
+        assertTrue(assists.isRunning("aim"));
+    }
+
+    @Test
+    public void twoHeldAssistsSharingAResourceDontTakeTurns() {
+        assists.define("aim", EnumSet.of(Resource.DRIVE), ticks("aim", 10));
+        assists.define("strafe", EnumSet.of(Resource.DRIVE), ticks("strafe", 10));
+        loop(c -> c.hold("aim"));
+        loop(c -> { c.hold("aim"); c.hold("strafe"); }); // the newer one wins...
+        loop(c -> { c.hold("aim"); c.hold("strafe"); }); // ...and keeps it
+        assertFalse(assists.isRunning("aim"));
+        assertTrue(assists.isRunning("strafe"));
+        assertEquals(Arrays.asList("aim:start", "aim:interrupted", "strafe:start"), log);
+    }
+
+    @Test
     public void newAssistInterruptsOneSharingAResource() {
         assists.define("park", EnumSet.of(Resource.DRIVE), ticks("park", 10));
         assists.define("shootFromSpot", EnumSet.of(Resource.DRIVE, Resource.SHOOTER), ticks("shootFromSpot", 10));

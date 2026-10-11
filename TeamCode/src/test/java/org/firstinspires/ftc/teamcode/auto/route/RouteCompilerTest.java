@@ -144,5 +144,18 @@ public class RouteCompilerTest {
         assertRejected("{\"waitt\":1}", "unknown key \"waitt\"");
         assertRejected("{\"follow\":{\"line\":[\"A\",\"B\"],\"heading\":\"sideways\"}}", "unknown heading");
         assertRejected("{\"wait\":-1}", "negative");
+        assertRejected("{\"wait\":1,\"args\":{}}", "\"args\" goes only with \"action\"");
+    }
+
+    @Test
+    public void badHeadingValuesSayWhereTheyAre() {
+        assertRejected("{\"follow\":{\"line\":[\"A\",\"B\"],\"heading\":{\"constant\":\"90deg\"}}}",
+                "routine[0].follow.heading.constant: must be a number");
+        assertRejected("{\"follow\":{\"line\":[\"A\",\"B\"],\"heading\":{\"linear\":90}}}",
+                "routine[0].follow.heading.linear: needs [fromDeg, toDeg]");
+        assertRejected("{\"follow\":{\"line\":[\"A\",\"B\"],\"heading\":{\"linear\":[0,\"x\"]}}}",
+                "routine[0].follow.heading.linear[1]: must be a number");
+        assertRejected("{\"follow\":{\"line\":[\"A\",\"B\"],\"heading\":{\"facing\":3}}}",
+                "routine[0].follow.heading.facing: must be a string");
     }
 }

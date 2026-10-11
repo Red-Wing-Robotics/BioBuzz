@@ -3,6 +3,52 @@
 Short, dated entries. Newest first. Record *why*, not just *what*, so nobody (human or AI)
 re-proposes a rejected idea without knowing the history.
 
+## 2026-10-11 — StarterBot OpModes get their own package and group
+
+`BioBuzzStarterbotTeleop` runs the goBILDA StarterBot, a separate robot with its own RC config.
+It sat in `opmodes/teleop/` in the `comp` group with hardcoded config names, so it appeared in
+the match OpMode list and crashed at INIT on the competition robot, and a review flagged it as
+breaking the config-name rule. It now lives in `opmodes/starterbot/`, in group `"starterbot"`,
+named `StarterBot: TeleOp`, with its names in `StarterBotHardware` (tested like `RobotHardware`).
+- **Rejected: a custom annotation** to mark StarterBot OpModes. The Driver Station shows only an
+  OpMode's name and group, so drivers would never see it, and only extra tooling could read it.
+
+## 2026-10-11 — TeleOp assists may drive under the HIVE, between its floor rails
+
+Takes up the 10-08 entry's next steps. `Steps.driveTo` now plans with `auto/DrivePlan`, which
+keeps every part of the robot `HiveClearance.margin` from the HIVE's **floor rails**
+(`Field.HIVE_FLOOR`) instead of keeping its centre 21 in from the whole outline (`Field.HIVE`).
+Within reach of a rail the robot holds a heading square to the field, so its footprint lines up
+with the rails and it passes them with half its width plus the margin. That makes the ~45 in
+lane between the two rails wide enough for an 18 in robot. The planner takes the quickest way by
+`DrivePlan.SPEED`, `ACCEL` and `TURN_RATE` (rough; calibrate from timed runs), round the HIVE
+or under it. The margin is 8.3 in: the gap that 21 in left a robot turned 45°, which stopped it
+snagging on 10-08. Kept from 10-04: straight legs via corners, never smooth curves.
+
+This replaces the model in which the whole outline was floor footprint ("no robot fits here").
+`Field.HIVE` is now the outline seen from above.
+
+**Open: check before relying on it in a match.**
+- **Overhead clearance.** `Field.HIVE_FLOOR` assumes nothing overhead comes low enough to reach
+  a robot in the lane, even mid-tip. That hasn't been measured: RULES.md gives only the 43.95 in
+  pivot height. Measure the lowest point of a down-facing CELL and of the dampers over the lane,
+  and compare it with the robot's height.
+- **G409.** A tipping HIVE dumps its CELL onto the floor under it. A robot passing under at that
+  moment can deflect falling elements, which G409 forbids, and G409 also says not to camp under
+  the HIVE. The assists only pass through (the shooting spots are off the HIVE's ends), but a pass
+  during a tip is possible. If that is judged too risky, set `HiveClearance.margin` above 13.6:
+  the lane closes and every assist goes round.
+- **Placeholders.** The rails are measured in the visualizer image (`Field.HIVE_RAIL_RED`), and
+  `RobotSize` is the 18 × 18 maximum. Turning on the spot beside a rail leaves only half the
+  width plus the margin, less the reach: 4.6 in. Errors in these numbers matter more than they did
+  at 21 in.
+
+Autos are unchanged: the auto maps still flag any route that crosses the HIVE outline.
+`DrivePlanTest` replaces `DriveToPathTest`. It samples the whole footprint along every plan from a
+grid of starts to every shooting spot. It checks the gap to both rails, the square heading beside
+them, and that the lane closes above 13.6. Docs updated to match: `opmodes/teleop/readme.md`,
+`teleop/readme.md`, `auto/readme.md`, `docs/field.md`, `CLAUDE.md`.
+
 ## 2026-10-08 — TeleOp HIVE clearance raised from 15 in to 21 in
 
 On the robot, the shooting-spot assists went round the HIVE but drove close enough to get caught

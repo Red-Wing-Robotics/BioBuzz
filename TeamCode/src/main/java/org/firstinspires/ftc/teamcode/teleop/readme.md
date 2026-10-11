@@ -45,7 +45,7 @@ factory that builds a fresh `Step` each time it starts:
 
 ```java
 assists.define(Assist.RETURN_TO_START, EnumSet.of(Resource.DRIVE),
-        () -> Steps.driveTo("start", startPose(), hive()));  // round the HIVE, see CompTeleOp
+        () -> Steps.driveTo("start", startPose(), Field.HIVE_FLOOR, HiveClearance.margin));  // clear of the HIVE, see CompTeleOp
 assists.define(Assist.FIRE_ALL, EnumSet.of(Resource.SHOOTER, Resource.FEEDER),
         () -> shooter.fireAll());                       // a subsystem's Step factory
 ```
@@ -54,8 +54,9 @@ A scheme requests one from a binding: `out.press(Assist.X)` when its button is p
 `out.hold(Assist.X)` every loop its button is held.
 
 - **Pressed:** runs until its Step finishes; pressing again cancels it.
-- **Held:** runs while held; release cancels it. If it finishes while still held, it doesn't
-  restart until the button is released and held again.
+- **Held:** runs while held; release cancels it. If it finishes, or something else interrupts it
+  (a drive stick, another assist taking a resource), while still held, it doesn't restart until
+  the button is released and held again.
 - **Resources:** starting an assist interrupts any running assist that shares a resource with it.
   Assists with nothing in common run together, e.g. the driver aiming while the operator fires.
 - **The driver always wins:** moving a drive stick cancels every assist that uses DRIVE.

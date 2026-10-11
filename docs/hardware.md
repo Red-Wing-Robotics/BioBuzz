@@ -1,10 +1,27 @@
 # Hardware Map
 
-Source of truth for robot wiring. Config names here must match `RobotHardware.java` **and** the
-Robot Controller configuration exactly. When you change one, change all three.
+Source of truth for the **competition robot's** wiring. Config names here must match
+`RobotHardware.java` **and** the Robot Controller configuration exactly. When you change one,
+change all three. The goBILDA StarterBot is a separate robot: its names are in
+`opmodes/starterbot/StarterBotHardware.java`.
 
 Actuator budget (R503): **8 motors / 8 servos** max. In use: 7 motors, 3 servos (+ a PWM light on
 a servo port — confirm with the LRI whether it counts as a servo).
+
+## Still to confirm on the robot
+
+No test can catch these. Tick each one here, and fix the table row or code it names.
+
+- [ ] **`frontRightMotor` spelling** in the RC config (it was given as `frrontRightMotor`). If it
+      doesn't match, every OpMode stops at INIT: "unable to find a hardware device".
+- [ ] **`pinpoint` config name** (assumed). Same failure.
+- [ ] **Odometry pod type**: 4-bar is assumed (`pedro/Constants.java`, TODO). 4-bar and swingarm
+      pods differ by about 1.5× in ticks per mm, so a wrong type scales every distance. To check,
+      push the robot a measured 48 in and read the DS "pose" line.
+- [ ] **Drive type**: mecanum is assumed (the Mecanum Tuner ran on 2026-09-20).
+- [ ] **PWM light and R503**: ask the LRI whether it counts as a servo.
+- [ ] **Robot footprint**: `auto/RobotSize.java` holds the 18 × 18 maximum, and the TeleOp
+      assists' clearance from the HIVE depends on it (docs/decisions.md, 2026-10-11).
 
 ## Control Hub
 

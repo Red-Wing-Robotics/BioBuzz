@@ -61,13 +61,16 @@ file serves both alliances. Origin, axes, heading and the BLUE rotation are defi
 | `{ "hold": "PARK", "timeout": 2 }` | hold a pose (timeout required) |
 
 Modifiers on any step: `"name"` (Driver Station telemetry) and `"timeout"` (seconds; interrupts).
+`"args"` goes only with `"action"`.
 
 `follow` heading (default: linear from the first waypoint's heading to the last's):
 `"heading": "tangent"` · `"reverseTangent"` · `{ "constant": 90 }` · `{ "linear": [0, 90] }` ·
 `{ "facing": "HIVE" }`. Degrees are RED-frame and mirrored like waypoints.
 
 Errors (unknown waypoint/action, bad key, missing timeout on hold…) are reported on the Driver
-Station at INIT with the path to the offending step, e.g. `routine[2].follow.line[1]`.
+Station at INIT with the path to the offending step, e.g. `routine[2].follow.line[1]`. Files
+must be strict JSON: no comments, every key quoted, and no key twice in one object, so a waypoint
+defined twice is an error, not a silent override.
 
 ## Java side
 
@@ -78,14 +81,20 @@ Station at INIT with the path to the offending step, e.g. `routine[2].follow.lin
 - `Step` — what actions implement: `start` / non-blocking `update` returning done / `end`.
 - `Steps` — the same combinators as the JSON (`sequence`, `parallel`, `race`, `withTimeout`,
   `waitSeconds`, `waitUntil`, `instant`, `follow`, `hold`) for routines written in Java
-  directly on `AutoOpMode`, when a file can't express something. `driveTo` builds its path from
-  wherever the robot is when the step starts, for TeleOp assists (`teleop/readme.md`), going
-  round any `KeepOut`s it is given.
-- `KeepOut` — a field rectangle the robot's centre must stay out of, and the shortest way round a
-  set of them (straight lines via their corners). Pure Java, unit-tested.
-- `Field` — the field's numbers in code: `SIZE`, `CENTER`, and `HIVE` (the HIVE structure's floor
-  footprint, a `KeepOut`: grow it by the robot's reach before use; the auto maps draw it too).
-  What they mean: [docs/coordinates.md](../../../../../../../../../docs/coordinates.md).
+  directly on `AutoOpMode`, when a file can't express something. `driveTo` plans from wherever
+  the robot is when the step starts, for TeleOp assists (`teleop/readme.md`), with `DrivePlan`.
+- `DrivePlan` — the quickest way to a pose that keeps every part of the robot a margin from a
+  set of obstacles, round them or between them: straight legs, a heading square to the field
+  beside an obstacle, turns where there's room. Pure Java, unit-tested (`DrivePlanTest`).
+- `KeepOut` — a field rectangle, and the cheapest way round a set of them (straight lines via
+  their corners, costed by distance or by `DrivePlan`'s driving time). Pure Java, unit-tested.
+- `Field` — the field's numbers in code: `SIZE`, `CENTER`, `HIVE` (the HIVE structure's outline
+  seen from above; the auto maps draw it and flag an auto that crosses it) and `HIVE_FLOOR` (its
+  two frame rails, the only parts on the floor; what TeleOp assists avoid). The rails are
+  placeholders until measured. What they mean:
+  [docs/coordinates.md](../../../../../../../../../docs/coordinates.md).
+- `RobotSize` — the robot's footprint, for `DrivePlan` and the auto maps. A placeholder (18 × 18)
+  until the robot is measured.
 - `PoseHandoff` — `AutoOpMode.stop()` saves the final pose; a TeleOp INIT'd within 30 s starts
   from it instead of its own start waypoint.
 - `AutoWaypoints` — `@Configurable`: the loaded route's waypoints, live-editable in Panels (dev

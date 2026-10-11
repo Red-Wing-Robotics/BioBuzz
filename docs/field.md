@@ -36,7 +36,8 @@ touching a FLOWER, within 18 in cube, contacting exactly 4 pre-loaded POLLEN.
 | Feature | Pose / dimensions | Notes |
 |---|---|---|
 | HIVE structure | field center; pivot 43.95 in above tiles | CELL opening 20 × 14 × 12 in |
-| HIVE floor footprint | x 47.3–96.7, y 46.4–97.6 | no robot fits here. Runtime truth: `auto/Field.HIVE`. TeleOp assists drive round it grown by `HiveClearance` (21 in) |
+| HIVE outline, from above | x 47.3–96.7, y 46.4–97.6 | frame, CELLs, dampers. Runtime truth: `auto/Field.HIVE`. The auto maps flag an auto that crosses it |
+| HIVE frame rails, on the floor | red x 47.5–49.3, y 52.0–91.7; blue x 94.7–96.5, y 52.3–92.0 | **Placeholder** (from the visualizer image). Runtime truth: `auto/Field.HIVE_FLOOR`. TeleOp assists keep `HiveClearance.margin` (8.3 in) from them and may use the ~45 in lane between them: overhead clearance not yet measured (docs/decisions.md, 2026-10-11) |
 | Red HIVE CELLs | x 48.8–69.1; ends at y 52.4–70.1 (up at start) and y 79.3–97.3 | from the visualizer image (`automaps/BiobuzzField`) |
 | Red LOADING ZONE | x 0–11.7, y 96.1–119.7 | on the red wall, drivers' left half |
 | FLOWER ×4 | on perimeter wall, top opening 21.5 in above tiles | TODO exact positions |

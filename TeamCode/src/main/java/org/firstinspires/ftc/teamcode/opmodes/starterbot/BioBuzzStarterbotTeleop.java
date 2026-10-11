@@ -21,7 +21,7 @@
  */
 
 
-package org.firstinspires.ftc.teamcode.opmodes.teleop;
+package org.firstinspires.ftc.teamcode.opmodes.starterbot;
 
 import static com.qualcomm.robotcore.hardware.DcMotor.ZeroPowerBehavior.BRAKE;
 
@@ -35,6 +35,9 @@ import com.qualcomm.robotcore.hardware.PIDFCoefficients;
 
 
 /*
+ * Runs the team's goBILDA StarterBot, a separate robot from the competition bot, with its own
+ * Robot Controller configuration (names in StarterBotHardware). See this package's readme.
+ *
  * This file includes a teleop (driver-controlled) file for the goBILDA® StarterBot for the
  * 2026-2027 FIRST® Tech Challenge. It leverages a differential/Skid-Steer system for robot mobility,
  * one motor driving an intake roller, two servos which pull elements out of corners, and a high-speed
@@ -49,7 +52,7 @@ import com.qualcomm.robotcore.hardware.PIDFCoefficients;
  * we will also need to adjust the "PIDF" coefficients with some that are a better fit for our application.
  */
 
-@TeleOp(name = "BioBuzz StarterBot Teleop", group = "comp")
+@TeleOp(name = "StarterBot: TeleOp", group = "starterbot")
 //@Disabled
 public class BioBuzzStarterbotTeleop extends OpMode {
 
@@ -99,18 +102,17 @@ public class BioBuzzStarterbotTeleop extends OpMode {
     public void init() {
 
         /*
-         * Initialize the hardware variables. Note that the strings used here as parameters
-         * to 'get' must correspond to the names assigned during the robot configuration
-         * step.
+         * Initialize the hardware variables. The config names must match the StarterBot's robot
+         * configuration; they live in StarterBotHardware.
          */
-        leftDrive = hardwareMap.get(DcMotor.class, "left_drive");
-        rightDrive = hardwareMap.get(DcMotor.class, "right_drive");
-        intake = hardwareMap.get(DcMotor.class, "intake");
-        launcher = hardwareMap.get(DcMotorEx.class, "launcher");
-        feeder = hardwareMap.get(CRServo.class, "feeder");
-        windmillServo = hardwareMap.get(CRServo.class, "windmill");
-        leftIntakeServo = hardwareMap.get(CRServo.class, "left_intake_servo");
-        rightIntakeServo = hardwareMap.get(CRServo.class, "right_intake_servo");
+        leftDrive = hardwareMap.get(DcMotor.class, StarterBotHardware.LEFT_DRIVE);
+        rightDrive = hardwareMap.get(DcMotor.class, StarterBotHardware.RIGHT_DRIVE);
+        intake = hardwareMap.get(DcMotor.class, StarterBotHardware.INTAKE);
+        launcher = hardwareMap.get(DcMotorEx.class, StarterBotHardware.LAUNCHER);
+        feeder = hardwareMap.get(CRServo.class, StarterBotHardware.FEEDER);
+        windmillServo = hardwareMap.get(CRServo.class, StarterBotHardware.WINDMILL);
+        leftIntakeServo = hardwareMap.get(CRServo.class, StarterBotHardware.LEFT_INTAKE_SERVO);
+        rightIntakeServo = hardwareMap.get(CRServo.class, StarterBotHardware.RIGHT_INTAKE_SERVO);
 
         /*
          * To drive forward, most robots need the motor on one side to be reversed,
