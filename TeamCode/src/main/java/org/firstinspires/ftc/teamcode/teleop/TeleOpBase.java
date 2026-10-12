@@ -26,7 +26,8 @@ import java.util.Locale;
  *
  * Every loop: clear the bulk cache → snapshot both gamepads → the scheme maps them to commands →
  * start/stop requested assists → drive sticks cancel driving assists → run assists → drive
- * manually unless an assist owns DRIVE → {@link #apply}.
+ * manually unless an assist owns DRIVE (the heading aim, if engaged, supplies the turn) →
+ * {@link #apply}.
  *
  * Start pose: where AUTO ended if it stopped within the last {@link PoseHandoff#MAX_AGE_SECONDS},
  * otherwise {@link #startWaypoint()}. Nothing moves during INIT (G403); the Driver Station shows
@@ -44,6 +45,7 @@ public abstract class TeleOpBase extends OpMode {
     private final MatchClock clock = new MatchClock();
     private final ElapsedTime sinceStart = new ElapsedTime();
     private final ElapsedTime sinceLastLoop = new ElapsedTime();
+    private final HeadingAim headingAim = new HeadingAim();
     private ControlScheme scheme;
     private AutoContext ctx;
     private Pose initialPose;
@@ -76,6 +78,14 @@ public abstract class TeleOpBase extends OpMode {
      * ({@link #assisting}). Driving is already done. Runs once per loop.
      */
     protected abstract void apply(DriverCommands commands);
+
+    /**
+     * Where {@code target} is, alliance frame (heading unused), for the heading aim; null if this
+     * TeleOp doesn't support it. Called every loop the aim is engaged.
+     */
+    protected Pose aimPoint(AimTarget target) {
+        return null;
+    }
 
     /** {@link #startWaypoint()} in this OpMode's alliance frame, e.g. as an assist target. */
     protected final Pose startPose() {
@@ -141,8 +151,15 @@ public abstract class TeleOpBase extends OpMode {
             assists.cancel(Resource.DRIVE, ctx); // the driver always wins
         }
         assists.update(ctx);
+        Pose aimAt = commands.aim != null && !assists.owns(Resource.DRIVE) ? aimPoint(commands.aim) : null;
+        if (aimAt == null) {
+            headingAim.reset();
+        }
         if (!assists.owns(Resource.DRIVE)) {
-            follower.manual(new DrivePowers(commands.forward, commands.strafe, commands.turn));
+            double turn = aimAt != null
+                    ? headingAim.turn(follower.pose(), aimAt.x(), aimAt.y(), loopMs / 1000.0)
+                    : commands.turn;
+            follower.manual(new DrivePowers(commands.forward, commands.strafe, turn));
         }
         follower.update(); // reads the localizer, then applies manual powers or the assist's path
         apply(commands);
@@ -161,6 +178,11 @@ public abstract class TeleOpBase extends OpMode {
         String notice = assists.notice(ctx.time());
         if (notice != null) {
             telemetry.addData("assist", notice);
+        }
+        if (commands.aim != null) {
+            telemetry.addData("aim", aimAt != null
+                    ? String.format(Locale.US, "%s, off by %.0f°", commands.aim.label, Math.toDegrees(headingAim.error()))
+                    : commands.aim.label + (assists.owns(Resource.DRIVE) ? " (paused: assist driving)" : " (not available)"));
         }
         telemetry.addData("drive", "fwd %.2f  strafe %.2f  turn %.2f%s",
                 commands.forward, commands.strafe, commands.turn, commands.slow ? "  SLOW" : "");

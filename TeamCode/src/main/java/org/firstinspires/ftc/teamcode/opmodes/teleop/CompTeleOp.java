@@ -8,12 +8,14 @@ import org.firstinspires.ftc.teamcode.auto.Field;
 import org.firstinspires.ftc.teamcode.auto.Step;
 import org.firstinspires.ftc.teamcode.auto.Steps;
 import org.firstinspires.ftc.teamcode.auto.Waypoint;
+import org.firstinspires.ftc.teamcode.teleop.AimTarget;
 import org.firstinspires.ftc.teamcode.teleop.Assist;
 import org.firstinspires.ftc.teamcode.teleop.Assists;
 import org.firstinspires.ftc.teamcode.teleop.ControlScheme;
 import org.firstinspires.ftc.teamcode.teleop.DriverCommands;
 import org.firstinspires.ftc.teamcode.teleop.Resource;
 import org.firstinspires.ftc.teamcode.teleop.TeleOpBase;
+import org.firstinspires.ftc.teamcode.teleop.schemes.AimScheme;
 import org.firstinspires.ftc.teamcode.teleop.schemes.SoloScheme;
 import org.firstinspires.ftc.teamcode.teleop.schemes.TwoDriverScheme;
 
@@ -56,6 +58,12 @@ public abstract class CompTeleOp extends TeleOpBase {
                 () -> driveToAndHold("right spot", ShootingSpots.right));
     }
 
+    /** Our HIVE's CELL centres ({@link HiveCells}, read every loop so Panels edits apply at once). */
+    @Override
+    protected Pose aimPoint(AimTarget target) {
+        return alliance().pose(target == AimTarget.LEFT_CELL ? HiveCells.left : HiveCells.right);
+    }
+
     /**
      * Drive to a spot the quickest way, round the HIVE or under it, then hold it against bumps
      * while the operator fires, until a drive stick moves.
@@ -80,6 +88,19 @@ public abstract class CompTeleOp extends TeleOpBase {
     @TeleOp(name = "Blue: TeleOp", group = "comp")
     public static class Blue extends CompTeleOp {
         @Override protected Alliance alliance() { return Alliance.BLUE; }
+    }
+
+    /** The match layout plus heading aim at our HIVE's CELLs on the driver's X / B ({@link AimScheme}). */
+    @TeleOp(name = "Red: Aim TeleOp", group = "comp")
+    public static class RedAim extends CompTeleOp {
+        @Override protected Alliance alliance() { return Alliance.RED; }
+        @Override protected ControlScheme scheme() { return new AimScheme(); }
+    }
+
+    @TeleOp(name = "Blue: Aim TeleOp", group = "comp")
+    public static class BlueAim extends CompTeleOp {
+        @Override protected Alliance alliance() { return Alliance.BLUE; }
+        @Override protected ControlScheme scheme() { return new AimScheme(); }
     }
 
     /** One person on gamepad1, for practice and testing. Plays as RED. */

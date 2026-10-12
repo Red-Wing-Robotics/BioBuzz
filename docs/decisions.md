@@ -3,6 +3,18 @@
 Short, dated entries. Newest first. Record *why*, not just *what*, so nobody (human or AI)
 re-proposes a rejected idea without knowing the history.
 
+## 2026-10-11 — Heading aim at our HIVE's CELLs, in separate Aim TeleOps
+
+`Red: Aim TeleOp` / `Blue: Aim TeleOp` (`CompTeleOp.RedAim` / `BlueAim`, `AimScheme`) are the
+match TeleOp plus driver X / B: keep the robot's front (launcher) pointed at the left / right
+CELL centre (`HiveCells`) while the driver still drives and strafes; the turn stick does
+nothing while it is on. A PD controller on the heading error (`teleop/HeadingAim`, gains in
+Panels, untuned). It is not an assist: assists own DRIVE and would cancel on any drive stick,
+and this must run alongside manual driving. Two buttons, one per CELL, because the robot doesn't
+yet know which CELL is up. Next step: pick the up CELL automatically (count TIPs, or read the
+CELL AprilTags), then one button. Kept out of `Red/Blue: TeleOp`, which the autos preselect,
+until it is tried on the robot.
+
 ## 2026-10-11 — StarterBot OpModes get their own package and group
 
 `BioBuzzStarterbotTeleop` runs the goBILDA StarterBot, a separate robot with its own RC config.

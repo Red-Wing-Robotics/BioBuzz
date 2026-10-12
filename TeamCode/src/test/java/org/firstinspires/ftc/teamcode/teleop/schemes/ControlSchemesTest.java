@@ -2,8 +2,10 @@ package org.firstinspires.ftc.teamcode.teleop.schemes;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
+import org.firstinspires.ftc.teamcode.teleop.AimTarget;
 import org.firstinspires.ftc.teamcode.teleop.Assist;
 import org.firstinspires.ftc.teamcode.teleop.Axis;
 import org.firstinspires.ftc.teamcode.teleop.Binding;
@@ -31,7 +33,7 @@ public class ControlSchemesTest {
     private static final double EPS = 1e-9;
 
     private static List<ControlScheme> allSchemes() {
-        return Arrays.asList(new TwoDriverScheme(), new SoloScheme());
+        return Arrays.asList(new TwoDriverScheme(), new SoloScheme(), new AimScheme());
     }
 
     private static DriverCommands map(ControlScheme scheme, DriverInput in) {
@@ -147,5 +149,42 @@ public class ControlSchemesTest {
         assertTrue("held: stays on", loop(scheme, in, in.gamepad2, Button.Y, true).shooterOn);
         assertTrue("released: stays on", loop(scheme, in, in.gamepad2, Button.Y, false).shooterOn);
         assertFalse("press again: off", loop(scheme, in, in.gamepad2, Button.Y, true).shooterOn);
+    }
+
+    @Test
+    public void aimButtonsToggleAndSwitchCells() {
+        ControlScheme scheme = new AimScheme();
+        DriverInput in = new DriverInput();
+        assertNull("off at INIT", map(scheme, in).aim);
+        assertEquals(AimTarget.LEFT_CELL, loop(scheme, in, in.gamepad1, Button.X, true).aim);
+        assertEquals("held: stays on", AimTarget.LEFT_CELL, loop(scheme, in, in.gamepad1, Button.X, true).aim);
+        assertEquals("released: stays on", AimTarget.LEFT_CELL, loop(scheme, in, in.gamepad1, Button.X, false).aim);
+        assertEquals("B switches", AimTarget.RIGHT_CELL, loop(scheme, in, in.gamepad1, Button.B, true).aim);
+        loop(scheme, in, in.gamepad1, Button.B, false);
+        assertNull("B again stops", loop(scheme, in, in.gamepad1, Button.B, true).aim);
+    }
+
+    @Test
+    public void aimingNullsTheTurnStickButNotDriving() {
+        ControlScheme scheme = new AimScheme();
+        DriverInput in = new DriverInput();
+        loop(scheme, in, in.gamepad1, Button.X, true);
+        in.gamepad1.set(Axis.RIGHT_STICK_X, 1.0).set(Axis.LEFT_STICK_Y, 1.0).set(Axis.LEFT_STICK_X, 1.0);
+        DriverCommands out = loop(scheme, in, in.gamepad1, Button.X, false); // next loop, still aiming
+        assertEquals(AimTarget.LEFT_CELL, out.aim);
+        assertEquals(0.0, out.turn, EPS);
+        assertEquals(1.0, out.forward, EPS);
+        assertEquals(-1.0, out.strafe, EPS);
+    }
+
+    @Test
+    public void aimSchemeKeepsTheTwoDriverControls() {
+        Set<String> aim = new HashSet<>();
+        for (Binding binding : new AimScheme().bindings()) {
+            aim.add(binding.input() + " = " + binding.action);
+        }
+        for (Binding binding : new TwoDriverScheme().bindings()) {
+            assertTrue(binding.input(), aim.contains(binding.input() + " = " + binding.action));
+        }
     }
 }

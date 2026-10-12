@@ -20,6 +20,11 @@ public final class DriverCommands {
     public double turn;
     /** Slow mode is held. Already applied to the drive powers; kept for telemetry. */
     public boolean slow;
+    /**
+     * Keep the robot's front pointed at this, or null for none. While set, the scheme leaves
+     * {@link #turn} at 0 and TeleOpBase computes the turn ({@link HeadingAim}).
+     */
+    public AimTarget aim;
 
     /** Intake power: +1 full in, −1 full out. */
     public double intake;
@@ -55,6 +60,7 @@ public final class DriverCommands {
         strafe = 0;
         turn = 0;
         slow = false;
+        aim = null;
         intake = 0;
         shooterOn = false;
         fire = false;

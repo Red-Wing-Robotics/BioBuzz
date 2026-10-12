@@ -7,6 +7,7 @@ TeleOp. It sets the start waypoint, defines the assists in `registerAssists`, tu
 | OpMode | Group | Scheme | Notes |
 |---|---|---|---|
 | `Red: TeleOp` / `Blue: TeleOp` | comp | `TwoDriverScheme` | preselected by the autos of that alliance |
+| `Red: Aim TeleOp` / `Blue: Aim TeleOp` | comp | `AimScheme` | the match layout plus heading aim (below); not preselected by any auto |
 | `Solo: TeleOp` | test | `SoloScheme` | one person, practice; B = drive back to start |
 
 Assists (defined in `CompTeleOp.registerAssists`, so every variant has them):
@@ -15,6 +16,12 @@ Assists (defined in `CompTeleOp.registerAssists`, so every variant has them):
 |---|---|---|
 | left / right shooting spot | gp1 d-pad ← / → (both schemes) | drives to `ShootingSpots.left` (far end of the HIVE) / `.right` (audience end) and holds there until a drive stick moves or the button is pressed again |
 | return to start | gp1 B (Solo only) | drives to the start waypoint |
+
+**Heading aim** (Aim TeleOps only, gp1 X / B): press to keep the robot's front pointed at our
+HIVE's left / right CELL centre (`HiveCells`, placeholder, live-editable in Panels); press again
+to stop, or the other button to switch. Forward and strafe work as usual; the turn stick does
+nothing while it is on. It pauses while a driving assist runs and resumes after. Gains:
+`teleop/HeadingAim`, untuned. The DS "aim" line shows the target and how far off the heading is.
 
 Every driving assist takes the **quickest way that keeps the whole robot clear of the HIVE's
 floor rails**, round the HIVE or through the lane under it: `Steps.driveTo` with

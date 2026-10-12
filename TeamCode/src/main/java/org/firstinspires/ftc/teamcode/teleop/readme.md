@@ -14,9 +14,11 @@ gamepads → DriverInput → ControlScheme.map → DriverCommands ─┬→ Tele
 |---|---|
 | `schemes/TwoDriverScheme` | match layout: gamepad1 drives, gamepad2 runs mechanisms |
 | `schemes/SoloScheme` | everything on gamepad1, for practice |
+| `schemes/AimScheme` | `TwoDriverScheme` plus heading aim toggles on the driver's X / B |
 | `ControlScheme` | base: declare bindings with `button(...)` / `axis(...)`, implement `map` |
 | `DriverCommands` | what the drivers want this loop: drive powers, intake, shooter, fire, assist requests |
 | `Assists`, `Assist`, `Resource` | assist definitions, the names schemes request, and what each assist takes over |
+| `AimTarget`, `HeadingAim` | what `DriverCommands.aim` may point the robot's front at; the PD controller that turns toward it (`@Configurable` gains). The TeleOp says where each target is in `aimPoint` |
 | `DriveFeel` | `@Configurable` stick feel: deadband, response curve, slow-mode scale |
 | `TeleOpBase` | the loop; subclasses pick alliance, scheme and start waypoint, and implement `apply` |
 | `GamepadState`, `DriverInput`, `Binding` | hardware-free gamepad snapshot with press/release detection |
