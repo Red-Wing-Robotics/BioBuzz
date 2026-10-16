@@ -2,10 +2,7 @@ package org.firstinspires.ftc.teamcode.pedro;
 
 import com.pedropathing.algorithm.Foresight;
 import com.pedropathing.algorithm.ForesightConfig;
-import com.pedropathing.controllers.Controller;
 import com.pedropathing.follower.Follower;
-import com.pedropathing.math.Matrix;
-import com.pedropathing.math.Vector2D;
 import com.pedropathing.revhub.drivetrains.Mecanum;
 import com.pedropathing.revhub.drivetrains.MecanumConfig;
 import com.pedropathing.revhub.localizers.PinpointConfig;
@@ -15,18 +12,21 @@ import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 
 import org.firstinspires.ftc.teamcode.RobotHardware;
+import org.firstinspires.ftc.teamcode.RobotId;
 
 /**
  * PedroPathing 3.0 configuration — runtime source of truth for all tuned values.
  *
- * Re-run the tuners (see Tuning.java) whenever the drivetrain, pods, or robot mass change, and
- * mirror the numbers into docs/hardware.md. Tuned 2026-09-20.
+ * Both robots share the drivetrain and the Pinpoint setup here; what differs (pod offsets,
+ * Foresight tuning) is in {@link Belteshazzar} and {@link Ashurbanipal}, picked by the hub's
+ * {@link RobotId}. Re-run the tuners (see Tuning.java) on a robot whenever its drivetrain, pods,
+ * or mass change, paste the results into that robot's file, and mirror them into docs/hardware.md.
  */
 public final class Constants {
 
     private Constants() {}
 
-    // ---- Drivetrain (directions verified with the Mecanum Tuner, 2026-09-20) --------------
+    // ---- Drivetrain, both robots (directions verified with the Mecanum Tuner, 2026-09-20) ----
     public static final MecanumConfig drivetrainConfig = new MecanumConfig(c -> {
         c.frontLeftName.set(RobotHardware.FRONT_LEFT_DRIVE);
         c.frontRightName.set(RobotHardware.FRONT_RIGHT_DRIVE);
@@ -43,55 +43,53 @@ public final class Constants {
     }
 
     // ---- Localizer (goBILDA Pinpoint, Expansion Hub I2C bus 2) ------------------------
-    public static final PinpointConfig localizerConfig = new PinpointConfig(c -> {
-        c.name.set(RobotHardware.PINPOINT);
-        // Pod positions relative to the robot's tracking center, in inches (x = forward pod,
-        // y = strafe pod). Measured 2026-09-20; written as inches + 32nds as measured.
-        c.xPodOffset.set(-4.0 - 23.0 / 32.0);
-        c.yPodOffset.set(-2.0 - 11.0 / 32.0);
-        c.xPodDirection.set(GoBildaPinpointDriver.EncoderDirection.REVERSED);
-        c.yPodDirection.set(GoBildaPinpointDriver.EncoderDirection.FORWARD);
-        // TODO: confirm pod type (4-bar vs. swingarm).
-        c.podType.set(GoBildaPinpointDriver.GoBildaOdometryPods.goBILDA_4_BAR_POD);
-    });
+    private static final PinpointConfig BELTESHAZZAR_LOCALIZER =
+            localizer(Belteshazzar.X_POD_OFFSET, Belteshazzar.Y_POD_OFFSET);
+    private static final PinpointConfig ASHURBANIPAL_LOCALIZER =
+            localizer(Ashurbanipal.X_POD_OFFSET, Ashurbanipal.Y_POD_OFFSET);
 
-    /** Constructing this recalibrates the Pinpoint IMU (~0.5 s) — the robot must be still. */
-    public static PinpointLocalizer createLocalizer(HardwareMap hardwareMap) {
-
-        return new PinpointLocalizer(hardwareMap, localizerConfig);
+    private static PinpointConfig localizer(double xPodOffset, double yPodOffset) {
+        return new PinpointConfig(c -> {
+            c.name.set(RobotHardware.PINPOINT);
+            c.xPodOffset.set(xPodOffset);
+            c.yPodOffset.set(yPodOffset);
+            c.xPodDirection.set(GoBildaPinpointDriver.EncoderDirection.REVERSED);
+            c.yPodDirection.set(GoBildaPinpointDriver.EncoderDirection.FORWARD);
+            // TODO: confirm pod type (4-bar vs. swingarm).
+            c.podType.set(GoBildaPinpointDriver.GoBildaOdometryPods.goBILDA_4_BAR_POD);
+        });
     }
 
-    // ---- Foresight (from the Foresight Tuner, 2026-09-20) ------------------------------
-    public static final ForesightConfig foresightConfig = new ForesightConfig(c -> {
-        Controller primaryTranslationalForward = Controller.proportional(0.14103543776948207);
-        Controller secondaryTranslationalForward = Controller.proportional(0.05210882571952031);
-        Controller primaryTranslationalLateral = Controller.proportional(0.20738696920139088);
-        Controller secondaryTranslationalLateral = Controller.proportional(0.07662394363803793);
+    public static PinpointConfig localizerConfig(RobotId robot) {
+        return robot == RobotId.ASHURBANIPAL ? ASHURBANIPAL_LOCALIZER : BELTESHAZZAR_LOCALIZER;
+    }
 
-        c.forwardTranslational.set(Controller.piecewise(secondaryTranslationalForward).put(2.5, primaryTranslationalForward));
-        c.strafeTranslational.set(Controller.piecewise(secondaryTranslationalLateral).put(2.5, primaryTranslationalLateral));
+    /** For this hub's robot. Recalibrates the Pinpoint IMU (~0.5 s) — the robot must be still. */
+    public static PinpointLocalizer createLocalizer(HardwareMap hardwareMap) {
+        return createLocalizer(hardwareMap, RobotId.onHub());
+    }
 
-        c.coast.set(Controller.proportionalFeedforward(0.015097332028744338));
-        c.brake.set(Controller.proportionalFeedforward(0.012832732224432687));
+    public static PinpointLocalizer createLocalizer(HardwareMap hardwareMap, RobotId robot) {
+        return new PinpointLocalizer(hardwareMap, localizerConfig(robot));
+    }
 
-        c.headingFeedback.set(Controller.proportional(3.148080136406957));
-        c.headingBrakeCoefficients.set(Vector2D.cartesian(0.040507150506330435, 0.007241973381428488));
-
-        c.linearBrakeCoefficients.set(Matrix.diag(0.0660279446532025, 0.0669220937164809));
-        c.quadraticBrakeCoefficients.set(Matrix.diag(0.0010079693007956328, 8.537729592257382E-4));
-
-        c.maxAchievableForwardVelocity.set(69.64886002787485);
-        c.maxAchievableStrafeVelocity.set(59.05690003315992);
-        c.naturalForwardDeceleration.set(37.22672207181109);
-        c.naturalStrafeDeceleration.set(51.94072519855322);
-    });
+    // ---- Foresight ----------------------------------------------------------------------
+    public static ForesightConfig foresightConfig(RobotId robot) {
+        return robot == RobotId.ASHURBANIPAL ? Ashurbanipal.FORESIGHT : Belteshazzar.FORESIGHT;
+    }
 
     // ---- Follower -----------------------------------------------------------------------
     /** One Follower per OpMode. Constructing it recalibrates the Pinpoint IMU — keep still. */
-    public static Follower create(HardwareMap hardwareMap) {
+    public static Follower create(HardwareMap hardwareMap, RobotId robot) {
         return new Follower(
-                createLocalizer(hardwareMap),
+                createLocalizer(hardwareMap, robot),
                 createDrivetrain(hardwareMap),
-                new Foresight(foresightConfig));
+                new Foresight(foresightConfig(robot)));
+    }
+
+    /** For the Driver Station at INIT: the robot, and whether its Pedro values are tuned. */
+    public static String describe(RobotId robot) {
+        boolean tuned = robot == RobotId.ASHURBANIPAL ? Ashurbanipal.TUNED : Belteshazzar.TUNED;
+        return tuned ? robot.label : robot.label + " — PEDRO NOT TUNED (placeholder values)";
     }
 }

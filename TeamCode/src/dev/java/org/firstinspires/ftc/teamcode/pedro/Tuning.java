@@ -4,6 +4,7 @@ import com.pedropathing.algorithm.Foresight;
 import com.pedropathing.tuning.autotune.Procedure;
 import com.pedropathing.tuning.autotune.Tuner;
 
+import org.firstinspires.ftc.teamcode.RobotId;
 import org.firstinspires.ftc.teamcode.pedro.procedures.ForesightTuner;
 import org.firstinspires.ftc.teamcode.pedro.procedures.MecanumTuner;
 import org.firstinspires.ftc.teamcode.pedro.procedures.PinpointTuner;
@@ -18,7 +19,9 @@ import org.firstinspires.ftc.teamcode.pedro.procedures.Tests;
  *   connect to the Control Hub's Wi-Fi, then open   http://192.168.43.1:10158
  *
  * Tuners are NOT Driver Station OpModes — the web UI launches them itself. Run them in order
- * (Mecanum → Pinpoint → Foresight → Tests) and paste each result into Constants.java.
+ * (Mecanum → Pinpoint → Foresight → Tests) and paste each result into the tuned robot's file
+ * (Belteshazzar.java / Ashurbanipal.java; drivetrain directions are shared, in Constants.java).
+ * The procedures use the robot named in the hub's {@link RobotId} file — set it first.
  */
 public final class Tuning {
 
@@ -45,6 +48,6 @@ public final class Tuning {
         return new Tests(
                 Constants::createDrivetrain,
                 Constants::createLocalizer,
-                () -> new Foresight(Constants.foresightConfig));
+                () -> new Foresight(Constants.foresightConfig(RobotId.onHub())));
     }
 }

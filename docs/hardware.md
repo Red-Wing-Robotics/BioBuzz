@@ -1,6 +1,10 @@
 # Hardware Map
 
-Source of truth for the **competition robot's** wiring. Config names here must match
+Source of truth for the **competition robots'** wiring. We have two, **Belteshazzar** and
+**Ashurbanipal**. They share this port map, the config names and the motor directions; only the
+Pinpoint pod offsets and the Pedro tuning differ (sections below). Each Control Hub says which
+robot it is in `/sdcard/FIRST/robot.txt` (`RobotId.java`; set it with the `Robot ID: ...`
+OpModes). Config names here must match
 `RobotHardware.java` **and** the Robot Controller configuration exactly. When you change one,
 change all three. The goBILDA StarterBot is a separate robot: its names are in
 `opmodes/starterbot/StarterBotHardware.java`.
@@ -20,6 +24,9 @@ No test can catch these. Tick each one here, and fix the table row or code it na
       push the robot a measured 48 in and read the DS "pose" line.
 - [ ] **Drive type**: mecanum is assumed (the Mecanum Tuner ran on 2026-09-20).
 - [ ] **PWM light and R503**: ask the LRI whether it counts as a servo.
+- [ ] **Ashurbanipal pod offsets and tuning**: measure the pod offsets into `pedro/Ashurbanipal.java`,
+      run the Pinpoint and Foresight tuners on it, and set `TUNED = true`. Until then its paths
+      use Belteshazzar's values.
 - [ ] **Robot footprint**: `auto/RobotSize.java` holds the 18 × 18 maximum, and the TeleOp
       assists' clearance from the HIVE depends on it (docs/decisions.md, 2026-10-11).
 
@@ -57,19 +64,21 @@ No test can catch these. Tick each one here, and fix the table row or code it na
 | Track width | TODO |
 | Motor directions | FL REVERSE, BL REVERSE, FR FORWARD, BR FORWARD — verified with the Mecanum Tuner 2026-09-20 |
 
-## Odometry (Pinpoint) — tuned 2026-09-20
+## Odometry (Pinpoint)
 
-| Property | Value |
-|---|---|
-| Pod type | goBILDA 4-bar (assumed — confirm) |
-| X (forward) pod offset | −4 23⁄32 in (−4.719 in) |
-| Y (strafe) pod offset | −2 11⁄32 in (−2.344 in) |
-| Pod directions | X REVERSED, Y FORWARD |
+| Property | Belteshazzar (2026-09-20) | Ashurbanipal |
+|---|---|---|
+| Pod type | goBILDA 4-bar (assumed — confirm) | same (assumed) |
+| X (forward) pod offset | −4 23⁄32 in (−4.719 in) | TODO measure (differs; Belteshazzar's value as placeholder) |
+| Y (strafe) pod offset | −2 11⁄32 in (−2.344 in) | TODO measure (differs; Belteshazzar's value as placeholder) |
+| Pod directions | X REVERSED, Y FORWARD | same |
 
-## PedroPathing Foresight constants — tuned 2026-09-20
+## PedroPathing Foresight constants
 
-Units: inches and seconds. Full precision lives in `pedro/Constants.java` (runtime truth); this
-table is the backup if that file is ever lost.
+**Belteshazzar, tuned 2026-09-20.** Ashurbanipal is **not tuned yet**: it runs on these values
+as placeholders, and its INIT telemetry says so. Units: inches and seconds. Full precision lives
+in `pedro/Belteshazzar.java` / `pedro/Ashurbanipal.java` (runtime truth); this table is the
+backup if those files are ever lost.
 
 | Constant | Value |
 |---|---|

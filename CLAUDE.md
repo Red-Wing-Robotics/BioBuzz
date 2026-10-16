@@ -36,7 +36,11 @@ Game rules summary: [RULES.md](RULES.md) — read it before designing any mechan
 - `opmodes/teleop/` — `CompTeleOp` with nested `Red`/`Blue`/`Solo` variants: start waypoint,
   assist definitions, and `DriverCommands` → subsystem calls. Never read gamepads here; bindings
   belong in a scheme.
-- `pedro/` — PedroPathing constants (`Constants.java`).
+- `RobotId.java` — which of our two competition robots, **Belteshazzar** or **Ashurbanipal**, this
+  hub is in, read from `/sdcard/FIRST/robot.txt` (set with the `Robot ID: ...` OpModes in
+  `opmodes/setup/`). Both robots run the same APK and OpModes and share `RobotHardware`.
+- `pedro/` — PedroPathing constants: shared ones in `Constants.java`, per-robot pod offsets and
+  tuning in `Belteshazzar.java` / `Ashurbanipal.java`, picked by `RobotId`.
 - `opmodes/starterbot/` — OpModes for the goBILDA **StarterBot**, a different robot with its own
   RC config. Its config names are in `StarterBotHardware`, not `RobotHardware`. It's a vendored
   sample, so the competition conventions don't apply. See its readme.
@@ -49,7 +53,7 @@ Game rules summary: [RULES.md](RULES.md) — read it before designing any mechan
 ## Conventions
 
 - Java 8 source level (SDK constraint): no `var`, records, switch expressions, or text blocks.
-- Annotate OpModes with `@TeleOp(name=..., group=...)` / `@Autonomous(name=..., group=..., preselectTeleOp=...)`. Groups: `"comp"` for match OpModes, `"tune"` for tuning, `"test"` for experiments, `"starterbot"` for the StarterBot (name prefix `StarterBot:`).
+- Annotate OpModes with `@TeleOp(name=..., group=...)` / `@Autonomous(name=..., group=..., preselectTeleOp=...)`. Groups: `"comp"` for match OpModes, `"tune"` for tuning, `"test"` for experiments, `"setup"` for one-time hub setup (robot ID), `"starterbot"` for the StarterBot (name prefix `StarterBot:`).
 - Copy patterns from the SDK samples in `FtcRobotController/src/main/java/org/firstinspires/ftc/robotcontroller/external/samples/` rather than recalling API usage from memory. Key samples: `SensorLimelight3A`, `ConceptAprilTag*`, `SensorGoBildaPinpoint`, `ConceptMotorBulkRead`, `RobotTeleopMecanumFieldRelativeDrive`.
 - Enable bulk reads on every hub (`LynxModule.BulkCachingMode.MANUAL` + `clearBulkCache()` once per loop — see `ConceptMotorBulkRead`). Cycle time is the top optimization target.
 - No blocking `sleep()` in TeleOp loops; use timers/state machines.

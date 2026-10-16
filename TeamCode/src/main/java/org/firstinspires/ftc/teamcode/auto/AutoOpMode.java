@@ -8,6 +8,7 @@ import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.teamcode.RobotHardware;
+import org.firstinspires.ftc.teamcode.RobotId;
 import org.firstinspires.ftc.teamcode.pedro.Constants;
 
 /**
@@ -40,13 +41,15 @@ public abstract class AutoOpMode extends OpMode {
 
     @Override
     public final void init() {
+        RobotId robotId = RobotId.onHub(); // stops INIT, saying how to fix it, if the hub has none
         robot = new RobotHardware(hardwareMap);
-        follower = Constants.create(hardwareMap);
+        follower = Constants.create(hardwareMap, robotId);
         ctx = new AutoContext(robot, follower, timer::seconds);
         finished = false;
         onInit();
         follower.setPose(pose(startWaypoint()));
         routine = routine();
+        telemetry.addData("robot", Constants.describe(robotId));
         telemetry.addData("alliance", alliance());
         telemetry.addData("start", startWaypoint());
         telemetry.addLine("Waypoints edited in Panels apply on re-INIT.");

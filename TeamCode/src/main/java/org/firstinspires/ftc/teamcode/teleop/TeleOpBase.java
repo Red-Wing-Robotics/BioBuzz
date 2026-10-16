@@ -8,6 +8,7 @@ import com.qualcomm.robotcore.hardware.Gamepad;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.teamcode.RobotHardware;
+import org.firstinspires.ftc.teamcode.RobotId;
 import org.firstinspires.ftc.teamcode.auto.Alliance;
 import org.firstinspires.ftc.teamcode.auto.AutoContext;
 import org.firstinspires.ftc.teamcode.auto.PoseHandoff;
@@ -50,6 +51,7 @@ public abstract class TeleOpBase extends OpMode {
     private AutoContext ctx;
     private Pose initialPose;
     private String initialPoseSource;
+    private String robotName;
 
     protected abstract Alliance alliance();
 
@@ -99,8 +101,10 @@ public abstract class TeleOpBase extends OpMode {
 
     @Override
     public final void init() {
+        RobotId robotId = RobotId.onHub(); // stops INIT, saying how to fix it, if the hub has none
+        robotName = Constants.describe(robotId);
         robot = new RobotHardware(hardwareMap);
-        follower = Constants.create(hardwareMap); // recalibrates the Pinpoint IMU: keep the robot still
+        follower = Constants.create(hardwareMap, robotId); // recalibrates the Pinpoint IMU: keep the robot still
         ctx = new AutoContext(robot, follower, sinceStart::seconds);
         scheme = scheme();
         onInit();
@@ -121,6 +125,7 @@ public abstract class TeleOpBase extends OpMode {
     public final void init_loop() {
         // Read during INIT too, so a button held through START isn't seen as a fresh press.
         readGamepads();
+        telemetry.addData("robot", robotName);
         telemetry.addData("alliance", alliance());
         telemetry.addData("start", "%s: x %.1f  y %.1f  heading %.0f°", initialPoseSource,
                 initialPose.x(), initialPose.y(), Math.toDegrees(initialPose.heading()));

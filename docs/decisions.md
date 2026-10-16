@@ -3,6 +3,26 @@
 Short, dated entries. Newest first. Record *why*, not just *what*, so nobody (human or AI)
 re-proposes a rejected idea without knowing the history.
 
+## 2026-10-15 — Two robots, one APK: the hub names its robot in /sdcard/FIRST/robot.txt
+
+We now run the same code on two robots, **Belteshazzar** (the first, tuned 2026-09-20) and
+**Ashurbanipal** (new, not tuned yet). They share config names, the port map and motor directions;
+their Pinpoint pod offsets and Pedro tuning differ. Each Control Hub holds a one-line file,
+`/sdcard/FIRST/robot.txt`, read at INIT by `RobotId`; `pedro/Constants` picks that robot's values
+from `pedro/Belteshazzar` / `pedro/Ashurbanipal`. The file lives beside the RC configurations, so
+APK installs, SDK updates and route pushes don't touch it; it belongs to the hub, so set it again
+after swapping hubs. Set it with the `Robot ID: ...` OpModes (group `setup`, both builds) or adb.
+A missing or unknown ID stops INIT with how to fix it: no default, because the wrong tuning is
+worse than not moving. INIT telemetry shows the robot and warns while its Pedro values are
+placeholders. Only what differs is per-robot; `RobotSize`, `DriveFeel`, `HeadingAim` and the
+`DrivePlan` speeds stay shared until a robot needs its own.
+- **Rejected: a build flavor per robot.** Four variants (dev/comp × robot), and installing the
+  wrong APK would load the wrong tuning silently.
+- **Rejected: separate OpModes per robot.** Doubles the Driver Station list and lets a driver
+  pick the wrong one.
+- **Rejected: detecting a marker device in the RC config.** Renaming a config entry would
+  silently switch robots.
+
 ## 2026-10-11 — Heading aim at our HIVE's CELLs, in separate Aim TeleOps
 
 `Red: Aim TeleOp` / `Blue: Aim TeleOp` (`CompTeleOp.RedAim` / `BlueAim`, `AimScheme`) are the
