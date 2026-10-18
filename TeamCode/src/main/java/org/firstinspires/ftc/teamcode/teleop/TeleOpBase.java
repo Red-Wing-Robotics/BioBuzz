@@ -51,7 +51,9 @@ public abstract class TeleOpBase extends OpMode {
     private AutoContext ctx;
     private Pose initialPose;
     private String initialPoseSource;
+    private RobotId robotId;
     private String robotName;
+    private boolean aimEngaged;
 
     protected abstract Alliance alliance();
 
@@ -94,6 +96,26 @@ public abstract class TeleOpBase extends OpMode {
         return alliance().pose(startWaypoint());
     }
 
+    /** Which of our robots this hub is in. */
+    protected final RobotId robotId() {
+        return robotId;
+    }
+
+    /** TELEOP time left, seconds ({@link MatchClock}). */
+    protected final double matchTimeLeft() {
+        return clock.remaining();
+    }
+
+    /** True if the heading aim turned the robot this loop (engaged, and no assist driving). */
+    protected final boolean aimEngaged() {
+        return aimEngaged;
+    }
+
+    /** The heading aim's error this loop, degrees, + meaning the target is counter-clockwise; 0 if not {@link #aimEngaged}. */
+    protected final double aimErrorDegrees() {
+        return aimEngaged ? Math.toDegrees(headingAim.error()) : 0;
+    }
+
     /** True while an assist owns {@code resource}; {@link #apply} should leave it alone. */
     protected final boolean assisting(Resource resource) {
         return assists.owns(resource);
@@ -101,7 +123,7 @@ public abstract class TeleOpBase extends OpMode {
 
     @Override
     public final void init() {
-        RobotId robotId = RobotId.onHub(); // stops INIT, saying how to fix it, if the hub has none
+        robotId = RobotId.onHub(); // stops INIT, saying how to fix it, if the hub has none
         robotName = Constants.describe(robotId);
         robot = new RobotHardware(hardwareMap);
         follower = Constants.create(hardwareMap, robotId); // recalibrates the Pinpoint IMU: keep the robot still
@@ -160,6 +182,7 @@ public abstract class TeleOpBase extends OpMode {
         if (aimAt == null) {
             headingAim.reset();
         }
+        aimEngaged = aimAt != null;
         if (!assists.owns(Resource.DRIVE)) {
             double turn = aimAt != null
                     ? headingAim.turn(follower.pose(), aimAt.x(), aimAt.y(), loopMs / 1000.0)

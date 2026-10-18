@@ -20,7 +20,7 @@ public class RobotHardware {
     public static final String FRONT_RIGHT_DRIVE = "frontRightMotor"; // motor 0
     public static final String BACK_RIGHT_DRIVE  = "backRightMotor";  // motor 1
     //                                                                   motor 2 unused
-    public static final String RIGHT_SHOOTER     = "rightShooter";    // motor 3
+    public static final String TOP_SHOOTER       = "topShooter";      // motor 3
     public static final String RIGHT_FEEDER      = "rightFeeder";     // servo 0
     public static final String DIVERTER          = "diverter";        // servo 1
     public static final String LIGHT             = "light";           // servo 2 (PWM light)
@@ -29,7 +29,7 @@ public class RobotHardware {
     // ---- Expansion Hub --------------------------------------------------------------
     public static final String FRONT_LEFT_DRIVE  = "frontLeftMotor";  // motor 0
     public static final String BACK_LEFT_DRIVE   = "backLeftMotor";   // motor 1
-    public static final String LEFT_SHOOTER      = "leftShooter";     // motor 2
+    public static final String BOTTOM_SHOOTER    = "bottomShooter";   // motor 2
     public static final String INTAKE            = "intake";          // motor 3
     public static final String LEFT_FEEDER       = "leftFeeder";      // servo 0
     public static final String PINPOINT          = "pinpoint";        // I2C bus 2 (goBILDA odometry computer)

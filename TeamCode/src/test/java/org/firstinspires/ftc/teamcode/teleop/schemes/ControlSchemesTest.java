@@ -16,6 +16,7 @@ import org.firstinspires.ftc.teamcode.teleop.DriverCommands;
 import org.firstinspires.ftc.teamcode.teleop.DriverInput;
 import org.firstinspires.ftc.teamcode.teleop.GamepadState;
 import org.firstinspires.ftc.teamcode.teleop.Pad;
+import org.firstinspires.ftc.teamcode.teleop.ShotResult;
 import org.junit.Test;
 
 import java.util.Arrays;
@@ -33,7 +34,7 @@ public class ControlSchemesTest {
     private static final double EPS = 1e-9;
 
     private static List<ControlScheme> allSchemes() {
-        return Arrays.asList(new TwoDriverScheme(), new SoloScheme(), new AimScheme());
+        return Arrays.asList(new TwoDriverScheme(), new SoloScheme(), new AimScheme(), new AimShooterScheme());
     }
 
     private static DriverCommands map(ControlScheme scheme, DriverInput in) {
@@ -185,6 +186,68 @@ public class ControlSchemesTest {
         }
         for (Binding binding : new TwoDriverScheme().bindings()) {
             assertTrue(binding.input(), aim.contains(binding.input() + " = " + binding.action));
+        }
+    }
+
+    @Test
+    public void aimShooterRightBumperTogglesTheShooters() {
+        ControlScheme scheme = new AimShooterScheme();
+        DriverInput in = new DriverInput();
+        assertFalse("off at INIT", map(scheme, in).shooterOn);
+        DriverCommands out = loop(scheme, in, in.gamepad2, Button.RIGHT_BUMPER, true);
+        assertTrue("press: on", out.shooterOn);
+        assertFalse("right bumper no longer fires", out.fire);
+        assertTrue("held: stays on", loop(scheme, in, in.gamepad2, Button.RIGHT_BUMPER, true).shooterOn);
+        assertTrue("released: stays on", loop(scheme, in, in.gamepad2, Button.RIGHT_BUMPER, false).shooterOn);
+        assertFalse("press again: off", loop(scheme, in, in.gamepad2, Button.RIGHT_BUMPER, true).shooterOn);
+        loop(scheme, in, in.gamepad2, Button.RIGHT_BUMPER, false);
+        assertFalse("Y does nothing here", loop(scheme, in, in.gamepad2, Button.Y, true).shooterOn);
+    }
+
+    @Test
+    public void aimShooterDpadChangesSpeedOncePerPress() {
+        ControlScheme scheme = new AimShooterScheme();
+        DriverInput in = new DriverInput();
+        assertEquals(AimShooterScheme.VELOCITY_STEP,
+                loop(scheme, in, in.gamepad2, Button.DPAD_UP, true).shooterVelocityChange, EPS);
+        assertEquals("held: once per press", 0.0,
+                loop(scheme, in, in.gamepad2, Button.DPAD_UP, true).shooterVelocityChange, EPS);
+        loop(scheme, in, in.gamepad2, Button.DPAD_UP, false);
+        assertEquals(-AimShooterScheme.VELOCITY_STEP,
+                loop(scheme, in, in.gamepad2, Button.DPAD_DOWN, true).shooterVelocityChange, EPS);
+    }
+
+    @Test
+    public void aimShooterAAndXLogHitAndMissOncePerPress() {
+        ControlScheme scheme = new AimShooterScheme();
+        DriverInput in = new DriverInput();
+        assertNull("nothing pressed", map(scheme, in).logShot);
+        assertEquals(ShotResult.HIT, loop(scheme, in, in.gamepad2, Button.A, true).logShot);
+        assertNull("held: one row per press", loop(scheme, in, in.gamepad2, Button.A, true).logShot);
+        loop(scheme, in, in.gamepad2, Button.A, false);
+        assertEquals(ShotResult.MISS, loop(scheme, in, in.gamepad2, Button.X, true).logShot);
+    }
+
+    @Test
+    public void onlyAimShooterLogsShots() {
+        for (ControlScheme scheme : Arrays.asList(new TwoDriverScheme(), new AimScheme())) {
+            DriverInput in = new DriverInput();
+            assertNull(scheme.name(), loop(scheme, in, in.gamepad2, Button.A, true).logShot);
+        }
+    }
+
+    @Test
+    public void aimShooterKeepsTheAimControls() {
+        Set<String> shooter = new HashSet<>();
+        for (Binding binding : new AimShooterScheme().bindings()) {
+            shooter.add(binding.input() + " = " + binding.action);
+        }
+        for (Binding binding : new AimScheme().bindings()) {
+            boolean replaced = binding.pad == Pad.GAMEPAD2
+                    && (binding.button == Button.Y || binding.button == Button.RIGHT_BUMPER);
+            if (!replaced) {
+                assertTrue(binding.input(), shooter.contains(binding.input() + " = " + binding.action));
+            }
         }
     }
 }

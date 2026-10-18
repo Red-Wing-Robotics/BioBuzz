@@ -21,6 +21,15 @@ public class AimScheme extends TwoDriverScheme {
 
     private AimTarget aim;
 
+    public AimScheme() {
+        super();
+    }
+
+    /** See {@link TwoDriverScheme#TwoDriverScheme(boolean)}. */
+    protected AimScheme(boolean shooterButtons) {
+        super(shooterButtons);
+    }
+
     @Override
     public String name() {
         return "two drivers + aim";

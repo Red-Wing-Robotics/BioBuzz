@@ -18,8 +18,8 @@ final class Ashurbanipal {
 
     // ---- Pinpoint pod offsets ---------------------------------------------------------------
     // TODO: measure. These pods sit differently from Belteshazzar's; these are its values.
-    static final double X_POD_OFFSET = Belteshazzar.X_POD_OFFSET;
-    static final double Y_POD_OFFSET = Belteshazzar.Y_POD_OFFSET;
+    static final double X_POD_OFFSET = -0.5;
+    static final double Y_POD_OFFSET = -6.125;
 
     // ---- Foresight ----------------------------------------------------------------------------
     // TODO: run the Foresight Tuner on this robot and paste its config here.

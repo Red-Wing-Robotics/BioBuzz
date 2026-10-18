@@ -30,8 +30,12 @@ public final class DriverCommands {
     public double intake;
     /** Shooter flywheels should be spinning. */
     public boolean shooterOn;
+    /** Change the shooter's target velocity by this much this loop, ticks/s (0: leave it). The shooter remembers the target. */
+    public double shooterVelocityChange;
     /** Feed elements into the flywheels while true. The shooter decides whether it is ready. */
     public boolean fire;
+    /** Write a row to the shot log this loop, marked with this result; null for none. */
+    public ShotResult logShot;
 
     private final List<String> pressedAssists = new ArrayList<>();
     private final List<String> heldAssists = new ArrayList<>();
@@ -63,7 +67,9 @@ public final class DriverCommands {
         aim = null;
         intake = 0;
         shooterOn = false;
+        shooterVelocityChange = 0;
         fire = false;
+        logShot = null;
         pressedAssists.clear();
         heldAssists.clear();
     }

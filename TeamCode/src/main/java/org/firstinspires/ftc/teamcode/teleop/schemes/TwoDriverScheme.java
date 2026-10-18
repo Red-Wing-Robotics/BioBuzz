@@ -29,10 +29,24 @@ public class TwoDriverScheme extends ControlScheme {
     // ---- Operator (gamepad2) ------------------------------------------------------------
     private final Binding intakeIn = axis(GAMEPAD2, Axis.RIGHT_TRIGGER, "intake in");
     private final Binding intakeOut = axis(GAMEPAD2, Axis.LEFT_TRIGGER, "intake out (unjam)");
-    private final Binding shooter = button(GAMEPAD2, Button.Y, "press: shooter on / off");
-    private final Binding fire = button(GAMEPAD2, Button.RIGHT_BUMPER, "hold: fire");
+    /** Null in a subclass that asked for {@code shooterButtons = false} and binds its own. */
+    private final Binding shooter;
+    private final Binding fire;
 
     private boolean shooterOn;
+
+    public TwoDriverScheme() {
+        this(true);
+    }
+
+    /**
+     * @param shooterButtons false leaves the operator's shooter toggle (Y) and fire (right bumper)
+     *     unbound, for a subclass with its own shooter controls
+     */
+    protected TwoDriverScheme(boolean shooterButtons) {
+        shooter = shooterButtons ? button(GAMEPAD2, Button.Y, "press: shooter on / off") : null;
+        fire = shooterButtons ? button(GAMEPAD2, Button.RIGHT_BUMPER, "hold: fire") : null;
+    }
 
     @Override
     public String name() {
@@ -43,11 +57,13 @@ public class TwoDriverScheme extends ControlScheme {
     public void map(DriverInput in, DriverCommands out) {
         robotCentricDrive(in, forward, strafe, turn, slow, out);
         out.intake = in.value(intakeIn) - in.value(intakeOut);
-        if (in.pressed(shooter)) {
-            shooterOn = !shooterOn;
+        if (shooter != null) {
+            if (in.pressed(shooter)) {
+                shooterOn = !shooterOn;
+            }
+            out.shooterOn = shooterOn;
+            out.fire = in.held(fire);
         }
-        out.shooterOn = shooterOn;
-        out.fire = in.held(fire);
         if (in.pressed(shootLeft)) {
             out.press(Assist.SHOOT_LEFT);
         }

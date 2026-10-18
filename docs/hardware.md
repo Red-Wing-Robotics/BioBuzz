@@ -37,7 +37,7 @@ No test can catch these. Tick each one here, and fix the table row or code it na
 | Motor 0 | Motor | `frontRightMotor` | drive, front right | FORWARD (verified 2026-09-20) | ⚠ given as `frrontRightMotor` — confirm the spelling in the RC config |
 | Motor 1 | Motor | `backRightMotor` | drive, back right | FORWARD (verified 2026-09-20) | |
 | Motor 2 | — | | unused | | |
-| Motor 3 | Motor | `rightShooter` | shooter flywheel, right | TODO | |
+| Motor 3 | Motor | `topShooter` | shooter flywheel, top (was `rightShooter`) | TODO | |
 | Servo 0 | Servo | `rightFeeder` | feeder, right | | |
 | Servo 1 | Servo | `diverter` | diverter | | |
 | Servo 2 | PWM | `light` | indicator light | | TODO device type (e.g. goBILDA RGB indicator) |
@@ -49,7 +49,7 @@ No test can catch these. Tick each one here, and fix the table row or code it na
 |---|---|---|---|---|---|
 | Motor 0 | Motor | `frontLeftMotor` | drive, front left | REVERSE (verified 2026-09-20) | |
 | Motor 1 | Motor | `backLeftMotor` | drive, back left | REVERSE (verified 2026-09-20) | |
-| Motor 2 | Motor | `leftShooter` | shooter flywheel, left | TODO | |
+| Motor 2 | Motor | `bottomShooter` | shooter flywheel, bottom (was `leftShooter`) | TODO | |
 | Motor 3 | Motor | `intake` | intake | TODO | |
 | Servo 0 | Servo | `leftFeeder` | feeder, left | | |
 | I2C bus 2 | I2C | `pinpoint` | goBILDA Pinpoint odometry computer | | config name assumed — confirm |
@@ -100,7 +100,7 @@ backup if those files are ever lost.
 | Mechanism | Actuators | Sensors | Notes |
 |---|---|---|---|
 | Drivetrain | 4 drive motors | Pinpoint | |
-| Shooter | `leftShooter`, `rightShooter` (flywheels) | | |
+| Shooter | `topShooter`, `bottomShooter` (flywheels, velocity control) | motor encoders | `subsystems/Shooter` |
 | Feeders | `leftFeeder`, `rightFeeder` (servos) | | |
 | Diverter | `diverter` (servo) | | |
 | Intake | `intake` (motor) | | G407: never CONTROL more than 4 balls — needs a count/stop |

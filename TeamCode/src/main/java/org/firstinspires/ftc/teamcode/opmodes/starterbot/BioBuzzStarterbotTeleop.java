@@ -284,7 +284,7 @@ public class BioBuzzStarterbotTeleop extends OpMode {
         if (gamepad1.right_bumper && launcherVelocity > LAUNCHER_MIN_VELOCITY) {
             windmillPower = 1;
             feederPower = 1;
-            intakePower += 0.5;
+            intakePower += 1.0;
         } else {
             windmillPower = 0;
             feederPower = 0;
