@@ -11,14 +11,14 @@ import com.pedropathing.math.Pose;
 import com.pedropathing.paths.Path;
 
 import org.firstinspires.ftc.teamcode.auto.Alliance;
-import org.firstinspires.ftc.teamcode.auto.Waypoint;
+import org.firstinspires.ftc.teamcode.auto.AutoClearance;
+import org.firstinspires.ftc.teamcode.auto.DrivePlan;
 import org.firstinspires.ftc.teamcode.auto.route.ActionRegistry;
 import org.firstinspires.ftc.teamcode.auto.route.Route;
 import org.firstinspires.ftc.teamcode.auto.route.RouteCompiler;
 import org.firstinspires.ftc.teamcode.automaps.Geometry.Poly;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -31,6 +31,10 @@ import java.util.Set;
  * paths (sampled from the same Pedro {@link Path}s the robot follows, built by
  * {@link RouteCompiler}), the step list with estimated times, estimated points, and rule checks.
  * The rules it applies are written down in docs/auto-maps.md.
+ *
+ * A {@code seek} drives somewhere only the robot decides, so after one the robot's position is
+ * unknown: the map shows where it searches, a following {@code driveTo} as a dashed guess from
+ * where it was last known, and flags a {@code follow} that would start from the unknown spot.
  */
 final class AutoRun {
 
@@ -75,6 +79,21 @@ final class AutoRun {
         }
     }
 
+    /** Where a seek looks: round where the robot starts it, as far as its {@code within}. */
+    static final class Search {
+        final int number;
+        final double x;
+        final double y;
+        final double radius;
+
+        Search(int number, double x, double y, double radius) {
+            this.number = number;
+            this.x = x;
+            this.y = y;
+            this.radius = radius;
+        }
+    }
+
     /** One line of the points estimate. */
     static final class Score {
         final String label;
@@ -101,9 +120,6 @@ final class AutoRun {
         }
     }
 
-    private static final List<String> KINDS = Arrays.asList(
-            "sequence", "parallel", "race", "follow", "wait", "waitUntil", "action", "hold");
-
     final Alliance alliance;
     final Route route;
     final Pose start;
@@ -111,6 +127,9 @@ final class AutoRun {
     final List<Row> rows = new ArrayList<>();
     final List<Leg> legs = new ArrayList<>();
     final List<Badge> badges = new ArrayList<>();
+    final List<Search> searches = new ArrayList<>();
+    /** driveTo legs from an unknown position: straight from where the robot was last known. Not checked. */
+    final List<Leg> guesses = new ArrayList<>();
     /** Waypoints the routine uses, in this alliance's frame. */
     final Map<String, Pose> waypoints = new LinkedHashMap<>();
     /** Waypoints used only as Bezier control points (the robot doesn't pass through them). */
@@ -125,6 +144,8 @@ final class AutoRun {
     private Pose current;
     private int counter;
     private boolean hasActions;
+    /** The seek after which the robot's position is unknown; 0 while it is known. */
+    private int unknownSince;
 
     AutoRun(Route route, Alliance alliance) {
         this.route = route;
@@ -157,7 +178,7 @@ final class AutoRun {
 
     private Est step(JsonObject step, String at, int depth) {
         String kind = null;
-        for (String k : KINDS) {
+        for (String k : RouteCompiler.KINDS) {
             if (step.has(k)) {
                 kind = k;
             }
@@ -192,8 +213,13 @@ final class AutoRun {
                 Pose pose = alliance.pose(route.waypoints.get(target));
                 waypoints.put(target, pose);
                 current = pose;
+                unknownSince = 0;
                 return leaf(depth, (name != null ? name + ": " : "") + "hold " + target, new Est(0, true), timeout);
             }
+            case "seek":
+                return seek(name, value.getAsString(), step.getAsJsonObject("args"), depth, timeout);
+            case "driveTo":
+                return driveTo(name, value.getAsString(), depth, timeout);
             default:
                 throw new IllegalStateException(kind);
         }
@@ -204,13 +230,17 @@ final class AutoRun {
         rows.add(null);
         Pose before = current;
         Pose after = current;
+        int unknownBefore = unknownSince;
+        int unknownAfter = unknownSince;
         double sum = 0, max = 0, min = Double.MAX_VALUE;
         boolean unknown = false;
         for (int i = 0; i < children.size(); i++) {
             if (!kind.equals("sequence")) {
                 current = before; // parallel children all start from the same place
+                unknownSince = unknownBefore;
             }
             Est e = step(children.get(i).getAsJsonObject(), at + "[" + i + "]", depth + 1);
+            unknownAfter = kind.equals("sequence") ? unknownSince : Math.max(unknownAfter, unknownSince);
             sum += e.seconds;
             max = Math.max(max, e.seconds);
             if (!e.unknown) {
@@ -220,6 +250,7 @@ final class AutoRun {
             after = current;
         }
         current = after;
+        unknownSince = unknownAfter;
         double seconds = kind.equals("sequence") ? sum : kind.equals("parallel") ? max : (min == Double.MAX_VALUE ? 0 : min);
         Est est = bound(new Est(seconds, unknown), timeout);
         String text = (name != null ? name + ": " : "") + kind + (kind.equals("race") ? " (first to finish)" : "");
@@ -249,6 +280,12 @@ final class AutoRun {
         JsonObject obj = spec.getAsJsonObject();
         String pathKind = obj.has("line") ? "line" : obj.has("curve") ? "curve" : "through";
         JsonArray names = obj.getAsJsonArray(pathKind);
+        if (unknownSince > 0) {
+            String from = names.get(0).getAsString();
+            problems.add("Step " + number + " follows a path from " + from + ", but after step " + unknownSince
+                    + " (a seek) the robot could be anywhere. Put { \"driveTo\": \"" + from + "\" } before it.");
+            unknownSince = 0;
+        }
         StringBuilder describe = new StringBuilder(pathKind).append(' ');
         for (int i = 0; i < names.size(); i++) {
             String wp = names.get(i).getAsString();
@@ -268,6 +305,79 @@ final class AutoRun {
         Est est = bound(new Est(moveSeconds(length), false), timeout);
         String text = (name != null ? name + ": " : "") + describe + ", " + String.format(Locale.US, "%.0f in", length);
         rows.add(new Row(number, depth, text, timeText(est, timeout)));
+        return est;
+    }
+
+    /** A seek: it searches round here, then nobody knows where the robot is until a driveTo, follow or hold. */
+    private Est seek(String name, String seek, JsonObject args, int depth, Double timeout) {
+        double radius = args != null && args.has("within") ? args.get("within").getAsDouble() : MapSettings.SEEK_WITHIN;
+        StringBuilder text = new StringBuilder(name != null ? name + ": " : "").append("seek ").append(seek);
+        if (args != null && args.size() > 0) {
+            List<String> parts = new ArrayList<>();
+            for (Map.Entry<String, JsonElement> e : args.entrySet()) {
+                JsonElement v = e.getValue();
+                parts.add(e.getKey() + " " + (v.isJsonPrimitive() ? v.getAsString() : v.toString()));
+            }
+            text.append(" (").append(String.join(", ", parts)).append(')');
+        }
+        Est est = leaf(depth, text.toString(), new Est(0, true), timeout);
+        searches.add(new Search(counter, current.x(), current.y(), radius));
+        unknownSince = counter;
+        return est;
+    }
+
+    /**
+     * A driveTo: the robot plans it with {@link DrivePlan} round {@link AutoClearance#obstacles}, so
+     * from a known pose the map draws and checks that same plan. After a seek it can only guess.
+     */
+    private Est driveTo(String name, String target, int depth, Double timeout) {
+        Pose to = alliance.pose(route.waypoints.get(target));
+        waypoints.put(target, to);
+        controlPoints.remove(target);
+        int number = ++counter;
+        String label = (name != null ? name + ": " : "") + "drive to " + target;
+        if (unknownSince > 0) {
+            List<Pose> samples = new ArrayList<>();
+            for (int i = 0; i <= MapSettings.PATH_SAMPLES; i++) {
+                double t = (double) i / MapSettings.PATH_SAMPLES;
+                samples.add(new Pose(current.x() + (to.x() - current.x()) * t, current.y() + (to.y() - current.y()) * t, to.heading()));
+            }
+            Leg guess = new Leg(number, samples, Math.hypot(to.x() - current.x(), to.y() - current.y()));
+            guesses.add(guess);
+            Pose mid = samples.get(samples.size() / 2);
+            badges.add(new Badge(number, mid.x(), mid.y()));
+            Est est = bound(new Est(0, true), timeout);
+            rows.add(new Row(number, depth, label + ", from wherever step " + unknownSince + " ended", timeText(est, timeout)));
+            unknownSince = 0;
+            current = to;
+            return est;
+        }
+
+        DrivePlan plan = DrivePlan.plan(current, to, AutoClearance.obstacles(alliance), AutoClearance.MARGIN);
+        List<Pose> samples = new ArrayList<>();
+        samples.add(current);
+        double length = 0;
+        for (DrivePlan.Part part : plan.parts) {
+            if (part.isTurn()) {
+                samples.add(new Pose(part.x, part.y, part.heading));
+                continue;
+            }
+            for (int i = 0; i <= MapSettings.PATH_SAMPLES; i++) {
+                double t = (double) i / MapSettings.PATH_SAMPLES;
+                Pose p = part.path.get(t);
+                Pose pose = new Pose(p.x(), p.y(), part.path.heading(t));
+                Pose prev = samples.get(samples.size() - 1);
+                length += Math.hypot(pose.x() - prev.x(), pose.y() - prev.y());
+                samples.add(pose);
+            }
+        }
+        legs.add(new Leg(number, samples, length));
+        Pose mid = samples.get(samples.size() / 2);
+        badges.add(new Badge(number, mid.x(), mid.y()));
+        current = samples.get(samples.size() - 1);
+        Est est = bound(new Est(plan.seconds + (plan.parts.isEmpty() ? 0 : MapSettings.SETTLE), false), timeout);
+        rows.add(new Row(number, depth, label + ", " + String.format(Locale.US, "%.0f in, planned round the HIVE", length),
+                timeText(est, timeout)));
         return est;
     }
 
@@ -383,6 +493,10 @@ final class AutoRun {
             }
         }
 
+        if (unknownSince > 0) {
+            problems.add("The route ends with step " + unknownSince + " (a seek): where the robot ends, and so LEAVE and PARK,"
+                    + " is a guess. End with a driveTo.");
+        }
         if (seconds > MapSettings.AUTO_SECONDS) {
             problems.add("Estimated " + secondsText(seconds) + ", over the 30 s AUTO.");
         }

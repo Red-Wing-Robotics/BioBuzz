@@ -9,11 +9,13 @@ import com.pedropathing.math.Pose;
 import com.pedropathing.paths.Path;
 
 import org.firstinspires.ftc.teamcode.auto.Alliance;
+import org.firstinspires.ftc.teamcode.auto.AutoClearance;
 import org.firstinspires.ftc.teamcode.auto.Step;
 import org.firstinspires.ftc.teamcode.auto.Steps;
 import org.firstinspires.ftc.teamcode.auto.Waypoint;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -35,14 +37,21 @@ import java.util.Set;
  * { "waitUntil": "condition.name" }
  * { "action": "shooter.spinUp", "args": { ... } }
  * { "hold": "WAYPOINT", "timeout": seconds }               // timeout required
+ * { "seek": "vision.ball", "args": { ... }, "timeout": s } // drives where the robot decides; timeout required
+ * { "driveTo": "WAYPOINT" }                                // from wherever the robot is, planned on the robot
  *
- * modifiers on any step:  "name": "shown on DS",  "timeout": seconds   ("args" only with "action")
+ * modifiers on any step:  "name": "shown on DS",  "timeout": seconds   ("args" only with "action" or "seek")
  * </pre>
+ *
+ * A {@code driveTo} plans its path with {@link org.firstinspires.ftc.teamcode.auto.DrivePlan},
+ * keeping clear of {@link AutoClearance#obstacles}. It is how a route gets back to its waypoints
+ * after a {@code seek}; a {@code follow} from there would start wherever the seek ended.
  */
 public final class RouteCompiler {
 
-    private static final Set<String> KINDS = new HashSet<>(Arrays.asList(
-            "sequence", "parallel", "race", "follow", "wait", "waitUntil", "action", "hold"));
+    /** Every step kind, the keys a step is identified by. The auto maps walk routes by them too. */
+    public static final Set<String> KINDS = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(
+            "sequence", "parallel", "race", "follow", "wait", "waitUntil", "action", "hold", "seek", "driveTo")));
     private static final Set<String> MODIFIERS = new HashSet<>(Arrays.asList("name", "timeout"));
     private static final Set<String> PATH_KINDS = new HashSet<>(Arrays.asList("line", "curve", "through"));
 
@@ -102,14 +111,14 @@ public final class RouteCompiler {
                 kind = key;
             } else if (!MODIFIERS.contains(key) && !key.equals("args")) {
                 throw new RouteException(at + ": unknown key \"" + key + "\" (kinds: " + KINDS + ", modifiers: " + MODIFIERS
-                        + ", and \"args\" with \"action\")");
+                        + ", and \"args\" with \"action\" or \"seek\")");
             }
         }
         if (kind == null) {
             throw new RouteException(at + ": needs one of " + KINDS);
         }
-        if (step.has("args") && !kind.equals("action")) {
-            throw new RouteException(at + ": \"args\" goes only with \"action\", not \"" + kind + "\"");
+        if (step.has("args") && !kind.equals("action") && !kind.equals("seek")) {
+            throw new RouteException(at + ": \"args\" goes only with \"action\" or \"seek\", not \"" + kind + "\"");
         }
         String kindAt = at + "." + kind;
         JsonElement value = step.get(kind);
@@ -134,21 +143,28 @@ public final class RouteCompiler {
             case "waitUntil":
                 compiled = Steps.waitUntil(string(value, kindAt), registry.condition(string(value, kindAt), kindAt));
                 break;
-            case "action": {
-                JsonElement args = step.get("args");
-                if (args != null && !args.isJsonObject()) {
-                    throw new RouteException(at + ".args: must be an object");
-                }
+            case "action":
                 compiled = Steps.named(string(value, kindAt),
-                        registry.action(string(value, kindAt), args == null ? new JsonObject() : args.getAsJsonObject(), kindAt));
+                        registry.action(string(value, kindAt), args(step, at), kindAt));
                 break;
-            }
             case "hold":
                 if (!step.has("timeout")) {
                     throw new RouteException(at + ": \"hold\" runs until interrupted — give it a \"timeout\"");
                 }
                 compiled = Steps.hold(string(value, kindAt), pose(string(value, kindAt), kindAt));
                 break;
+            case "seek":
+                if (!step.has("timeout")) {
+                    throw new RouteException(at + ": a \"seek\" drives wherever the robot decides — give it a \"timeout\"");
+                }
+                compiled = Steps.named("seek " + string(value, kindAt),
+                        registry.seek(string(value, kindAt), args(step, at), kindAt));
+                break;
+            case "driveTo": {
+                String target = string(value, kindAt);
+                compiled = Steps.driveTo(target, pose(target, kindAt), AutoClearance.obstacles(alliance), AutoClearance.MARGIN);
+                break;
+            }
             default:
                 throw new IllegalStateException(kind);
         }
@@ -292,6 +308,15 @@ public final class RouteCompiler {
             }
         }
         return "path";
+    }
+
+    /** A step's {@code "args"}, or an empty object if it has none. */
+    private static JsonObject args(JsonObject step, String at) {
+        JsonElement args = step.get("args");
+        if (args != null && !args.isJsonObject()) {
+            throw new RouteException(at + ".args: must be an object");
+        }
+        return args == null ? new JsonObject() : args.getAsJsonObject();
     }
 
     private static String string(JsonElement element, String at) {

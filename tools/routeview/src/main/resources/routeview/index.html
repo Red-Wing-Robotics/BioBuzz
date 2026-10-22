@@ -78,6 +78,9 @@
   .robotbar .rstatus { font-size: 13px; }
   .robotbar .rstatus.live { font-weight: 600; }
   .robotbar .full { flex-basis: 100%; font-size: 12px; }
+  .robotbar .telemetry { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; }
+  .robotbar .telemetry .thead { font-family: inherit; font-weight: 600; margin-bottom: 4px; }
+  .robotbar .telemetry .lines { white-space: pre-wrap; max-height: 260px; overflow-y: auto; line-height: 1.45; }
   .robotbar .warn { color: var(--warn); }
   .robotbar .bad { color: var(--bad); }
   .body.editing { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
@@ -191,6 +194,7 @@ let detailKey = null;     // what it was fetched for
 let shownChecksum = null; // the saved map last drawn, to flash it when a save changes it
 let view = null;          // DOM of the route shown: { key, head, sums, robotBar, body, mapPane, editor? }
 let stateAt = 0;          // when the last state arrived, to count the robot's elapsed time locally
+let shape = null;         // the last state minus what changes by itself (telemetry, elapsed time), to tell what to redraw
 const robotChoice = {};   // route name → the OpMode picked for it
 let robotError = null;    // { text, at } from the last refused robot command
 
@@ -237,6 +241,12 @@ async function loop() {
       stateAt = Date.now();
       since = state.version;
       $("offline").hidden = true;
+      const key = JSON.stringify(state, (k, v) => (k === "telemetry" || k === "version" || k === "ms") ? undefined : v);
+      if (key === shape && view) {
+        renderTelemetry(); // only the robot's Driver Station lines changed: leave the map alone
+        continue;
+      }
+      shape = key;
       renderState();
       await refreshDetail();
       watchDisk();
@@ -471,6 +481,30 @@ function renderRobot(r) {
   if (st.phase === "IDLE" && st.lastEnded) bar.append(el("div", "full muted", "Last run: " + st.lastEnded + "."));
   bar.append(el("div", "full muted", "Stand by the robot with the Driver Station; its STOP works too. "
     + "Started from here, an OpMode stops after 30 s, or 1.5 s after Jimothy stops answering."));
+  view.telemetry = el("div", "full telemetry mono");
+  bar.append(view.telemetry);
+  renderTelemetry();
+}
+
+/** The robot's Driver Station telemetry: live while an OpMode runs, the last run's after it stops. */
+function renderTelemetry() {
+  const box = view && view.telemetry;
+  if (!box || !state.robot.available) return;
+  const st = state.robot.status;
+  const t = st.telemetry;
+  box.replaceChildren();
+  if (!state.robot.sendsTelemetry) {
+    box.append(el("div", "muted", "This robot build doesn't send its Driver Station telemetry. "
+      + "Install the current dev build (devDebug) to see it here."));
+    return;
+  }
+  if (!t) {
+    box.append(el("div", "muted", "Driver Station telemetry shows here once an OpMode runs."));
+    return;
+  }
+  const live = st.phase !== "IDLE" || !!st.sdkActive;
+  box.append(el("div", "thead", "Driver Station · " + t.opMode + (live ? "" : " · as the last run left it")));
+  box.append(el("div", "lines", t.lines.length ? t.lines.join("\n") : "(no telemetry yet)"));
 }
 
 /** Updates the robot's status line, counting the time locally between state updates. */
@@ -621,7 +655,7 @@ function side(rep) {
 
 // ---- editor -------------------------------------------------------------------------------------
 
-const KINDS = new Set(["sequence", "parallel", "race", "follow", "wait", "waitUntil", "action", "hold"]);
+const KINDS = new Set(["sequence", "parallel", "race", "follow", "wait", "waitUntil", "action", "hold", "seek", "driveTo"]);
 
 const SNIPPETS = {
   "step: follow line": (w) => `{ "follow": { "line": ["${w[0]}", "${w[1]}"] } }`,
@@ -631,6 +665,8 @@ const SNIPPETS = {
   "step: waitUntil": () => `{ "waitUntil": "intake.full" }`,
   "step: action": () => `{ "action": "shooter.fire", "args": { "count": 3 } }`,
   "step: hold": (w) => `{ "hold": "${w[w.length - 1]}", "timeout": 2 }`,
+  "step: seek a ball": () => `{ "seek": "vision.ball", "args": { "colors": "pollen" }, "timeout": 4 }`,
+  "step: driveTo": (w) => `{ "driveTo": "${w[w.length - 1]}" }`,
   "step: sequence": () => `{ "sequence": [ ] }`,
   "step: parallel": () => `{ "parallel": [ ] }`,
   "step: race": () => `{ "race": [ ] }`,
@@ -652,7 +688,9 @@ const REFERENCE = [
   ["{ \"waitUntil\": \"intake.full\" }", "a condition an OpMode registers"],
   ["{ \"action\": \"shooter.fire\", \"args\": { … } }", "an action an OpMode registers"],
   ["{ \"hold\": \"PARK\", \"timeout\": 2 }", "hold a pose (timeout required)"],
-  ["\"name\", \"timeout\"", "on any step: Driver Station label; seconds before it's interrupted"],
+  ["{ \"seek\": \"vision.ball\", \"args\": { … }, \"timeout\": 4 }", "drive where the robot decides, e.g. to a ball the camera sees (timeout required); args: colors pollen · nectar · ours, within, standoff, look, prefer most · nearest"],
+  ["{ \"driveTo\": \"PARK\" }", "drive to a waypoint from wherever the robot is, planned round the HIVE: use one after a seek"],
+  ["\"name\", \"timeout\"", "on any step: Driver Station label; seconds before it's interrupted (\"args\" only with action or seek)"],
   ["waypoints", "\"NAME\": [x, y, headingDeg], inches and degrees, RED frame (docs/coordinates.md)"],
 ];
 

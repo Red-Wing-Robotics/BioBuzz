@@ -16,5 +16,11 @@ public final class Assist {
     /** Drive to the shooting spot on the drivers' right of the HIVE and hold it. */
     public static final String SHOOT_RIGHT = "right shooting spot";
 
+    /** Drive to a ball the camera sees and stop short of it (vision/DriveToBall). */
+    public static final String TO_BALL = "drive to a ball";
+
+    /** Forget every ball the camera has tracked (the vision bench). */
+    public static final String FORGET_BALLS = "forget balls";
+
     private Assist() {}
 }

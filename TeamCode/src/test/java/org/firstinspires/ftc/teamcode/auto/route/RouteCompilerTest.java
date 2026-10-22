@@ -72,6 +72,8 @@ public class RouteCompilerTest {
                     registry.action(v.getAsString(), args -> Steps.instant(v.getAsString(), () -> {}));
                 } else if (name && entry.getKey().equals("waitUntil")) {
                     registry.condition(v.getAsString(), () -> true);
+                } else if (name && entry.getKey().equals("seek")) {
+                    registry.seek(v.getAsString(), args -> Steps.instant(v.getAsString(), () -> {}));
                 } else {
                     registerEveryName(v, registry);
                 }
@@ -145,6 +147,39 @@ public class RouteCompilerTest {
         assertRejected("{\"follow\":{\"line\":[\"A\",\"B\"],\"heading\":\"sideways\"}}", "unknown heading");
         assertRejected("{\"wait\":-1}", "negative");
         assertRejected("{\"wait\":1,\"args\":{}}", "\"args\" goes only with \"action\"");
+    }
+
+    @Test
+    public void seekNeedsATimeoutAndARegisteredName() {
+        assertRejected("{\"seek\":\"vision.ball\"}", "\"timeout\"");
+        assertRejected("{\"seek\":\"nope\",\"timeout\":2}", "unknown seek \"nope\"");
+    }
+
+    @Test
+    public void seekGetsItsArgsAndBadArgsSayWhichStep() {
+        ActionRegistry registry = new ActionRegistry().seek("vision.ball", args -> {
+            if (args.has("bad")) {
+                throw new RouteException("args: unknown key \"bad\"");
+            }
+            return Steps.instant("ball", () -> {});
+        });
+        Step step = compiler(Alliance.RED, registry)
+                .compileStep(new JsonParser().parse("{\"seek\":\"vision.ball\",\"args\":{\"within\":20},\"timeout\":3}"), "routine[0]");
+        assertTrue(step.name(), step.name().contains("seek vision.ball"));
+        try {
+            compiler(Alliance.RED, registry)
+                    .compileStep(new JsonParser().parse("{\"seek\":\"vision.ball\",\"args\":{\"bad\":1},\"timeout\":3}"), "routine[4]");
+            fail("bad args accepted");
+        } catch (RouteException e) {
+            assertTrue(e.getMessage(), e.getMessage().startsWith("routine[4].seek: args: unknown key"));
+        }
+    }
+
+    @Test
+    public void driveToGoesToAKnownWaypoint() {
+        assertRejected("{\"driveTo\":\"Z\"}", "unknown waypoint \"Z\"");
+        Step step = compiler(Alliance.RED, new ActionRegistry()).compileStep(new JsonParser().parse("{\"driveTo\":\"B\"}"), "t");
+        assertEquals("drive to B", step.name());
     }
 
     @Test

@@ -1,6 +1,7 @@
 package org.firstinspires.ftc.teamcode.routeview;
 
 import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
 import org.firstinspires.ftc.teamcode.auto.route.RouteChecksum;
@@ -18,6 +19,7 @@ import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
@@ -588,12 +590,15 @@ public final class RouteView {
                 JsonObject status = problem == null ? body : null;
                 String before = robotSummary(robotStatus, robotProblem);
                 String after = robotSummary(status, problem);
+                boolean newTelemetry = !Objects.equals(telemetry(robotStatus), telemetry(status));
                 robotStatus = status;
                 robotProblem = problem;
                 if (!after.equals(before)) {
                     // Elapsed time alone doesn't wake the page; it counts locally between changes.
                     logRobot(status, problem);
                     changed();
+                } else if (newTelemetry) {
+                    changed(); // the page redraws only its telemetry box; nothing for the console
                 }
             }
         } catch (RuntimeException e) {
@@ -624,7 +629,12 @@ public final class RouteView {
         return answer;
     }
 
-    /** What the page shows about the robot, minus the ticking time. Holding the lock. */
+    /** The Driver Station lines in a robot status (RouteViewRemote's TelemetryTap), or null. */
+    private static JsonElement telemetry(JsonObject status) {
+        return status == null ? null : status.get("telemetry");
+    }
+
+    /** What the page shows about the robot, minus the ticking time and the telemetry. Holding the lock. */
     private static String robotSummary(JsonObject status, String problem) {
         if (status == null) {
             return "problem: " + problem;
@@ -790,6 +800,9 @@ public final class RouteView {
         r.addProperty("problem", robot == null && robotProblem == null && hubOnline ? "setting up…" : robotProblem);
         if (robotStatus != null) {
             r.add("status", robotStatus);
+            // Before any OpMode runs the robot sends "telemetry": null, which the JSON writer drops;
+            // this tells the page a build that sends telemetry from one that predates it.
+            r.addProperty("sendsTelemetry", robotStatus.has("telemetry"));
         }
         out.add("robot", r);
         return out;

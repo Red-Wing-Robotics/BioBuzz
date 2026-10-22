@@ -30,8 +30,8 @@ import java.util.stream.Stream;
  * Checks a route file the way the robot does at INIT ({@link RouteParser}, then
  * {@link RouteCompiler} for both alliances), and draws it ({@link LiveMap}) if it passes.
  *
- * Action and condition names are registered by OpModes at runtime, which needs the robot, so
- * here every name compiles and a name no TeamCode source registers is a warning, not an error.
+ * Action, condition and seek names are registered by OpModes at runtime, which needs the robot,
+ * so here every name compiles and a name no TeamCode source registers is a warning, not an error.
  */
 final class RouteCheck {
 
@@ -66,15 +66,19 @@ final class RouteCheck {
         Route route;
         Set<String> actions = new TreeSet<>();
         Set<String> conditions = new TreeSet<>();
+        Set<String> seeks = new TreeSet<>();
         try {
             route = RouteParser.parse(json);
-            collectNames(route.routine, actions, conditions);
+            collectNames(route.routine, actions, conditions, seeks);
             ActionRegistry anyName = new ActionRegistry();
             for (String a : actions) {
                 anyName.action(a, args -> Steps.instant(a, () -> {}));
             }
             for (String c : conditions) {
                 anyName.condition(c, () -> true);
+            }
+            for (String k : seeks) {
+                anyName.seek(k, args -> Steps.instant(k, () -> {}));
             }
             for (Alliance alliance : Alliance.values()) {
                 RouteCompiler compiler = new RouteCompiler(alliance, route.waypoints, anyName);
@@ -101,6 +105,12 @@ final class RouteCheck {
                         + "\", …)), so INIT will fail on the robot.");
             }
         }
+        for (String k : seeks) {
+            if (!registered.seeks.contains(k)) {
+                warnings.add("seek \"" + k + "\" isn't registered anywhere in TeamCode (no .seek(\"" + k
+                        + "\", …)), so INIT will fail on the robot.");
+            }
+        }
 
         try {
             return new Result(null, warnings, route.name,
@@ -110,11 +120,11 @@ final class RouteCheck {
         }
     }
 
-    /** Every {@code "action"} and {@code "waitUntil"} name anywhere in the routine. */
-    private static void collectNames(JsonElement e, Set<String> actions, Set<String> conditions) {
+    /** Every {@code "action"}, {@code "waitUntil"} and {@code "seek"} name anywhere in the routine. */
+    private static void collectNames(JsonElement e, Set<String> actions, Set<String> conditions, Set<String> seeks) {
         if (e.isJsonArray()) {
             for (JsonElement child : e.getAsJsonArray()) {
-                collectNames(child, actions, conditions);
+                collectNames(child, actions, conditions, seeks);
             }
         } else if (e.isJsonObject()) {
             for (Map.Entry<String, JsonElement> entry : e.getAsJsonObject().entrySet()) {
@@ -124,39 +134,46 @@ final class RouteCheck {
                     actions.add(v.getAsString());
                 } else if (name && entry.getKey().equals("waitUntil")) {
                     conditions.add(v.getAsString());
+                } else if (name && entry.getKey().equals("seek")) {
+                    seeks.add(v.getAsString());
                 } else {
-                    collectNames(v, actions, conditions);
+                    collectNames(v, actions, conditions, seeks);
                 }
             }
         }
     }
 
     /**
-     * Action and condition names TeamCode registers, found by searching its sources for
-     * {@code .action("name"} and {@code .condition("name"}. A text search, so a name built at
-     * runtime isn't seen; that only costs a false warning.
+     * Action, condition and seek names TeamCode registers, found by searching its sources for
+     * {@code .action("name"}, {@code .condition("name"} and {@code .seek("name"}. A text search, so
+     * a name built at runtime isn't seen; that only costs a false warning.
      */
     static final class Registrations {
         private static final Pattern ACTION = Pattern.compile("\\.action\\(\\s*\"([^\"]+)\"");
         private static final Pattern CONDITION = Pattern.compile("\\.condition\\(\\s*\"([^\"]+)\"");
+        private static final Pattern SEEK = Pattern.compile("\\.seek\\(\\s*\"([^\"]+)\"");
 
         final Set<String> actions;
         final Set<String> conditions;
+        final Set<String> seeks;
 
-        Registrations(Set<String> actions, Set<String> conditions) {
+        Registrations(Set<String> actions, Set<String> conditions, Set<String> seeks) {
             this.actions = actions;
             this.conditions = conditions;
+            this.seeks = seeks;
         }
 
         static Registrations scan(File sourceRoot) {
             Set<String> actions = new TreeSet<>();
             Set<String> conditions = new TreeSet<>();
+            Set<String> seeks = new TreeSet<>();
             try (Stream<java.nio.file.Path> files = Files.walk(sourceRoot.toPath())) {
                 files.filter(p -> p.toString().endsWith(".java")).forEach(p -> {
                     try {
                         String text = new String(Files.readAllBytes(p), StandardCharsets.UTF_8);
                         find(ACTION, text, actions);
                         find(CONDITION, text, conditions);
+                        find(SEEK, text, seeks);
                     } catch (IOException ignored) {
                         // mid-save; the next scan sees it
                     }
@@ -164,7 +181,7 @@ final class RouteCheck {
             } catch (IOException | RuntimeException e) {
                 // no sources (moved repo?): every name will warn, which is the safe direction
             }
-            return new Registrations(actions, conditions);
+            return new Registrations(actions, conditions, seeks);
         }
 
         private static void find(Pattern pattern, String text, Set<String> into) {
@@ -177,12 +194,12 @@ final class RouteCheck {
         @Override
         public boolean equals(Object o) {
             return o instanceof Registrations && ((Registrations) o).actions.equals(actions)
-                    && ((Registrations) o).conditions.equals(conditions);
+                    && ((Registrations) o).conditions.equals(conditions) && ((Registrations) o).seeks.equals(seeks);
         }
 
         @Override
         public int hashCode() {
-            return actions.hashCode() * 31 + conditions.hashCode();
+            return (actions.hashCode() * 31 + conditions.hashCode()) * 31 + seeks.hashCode();
         }
     }
 }

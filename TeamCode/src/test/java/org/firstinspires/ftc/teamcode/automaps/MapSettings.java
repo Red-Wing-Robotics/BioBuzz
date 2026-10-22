@@ -25,6 +25,12 @@ final class MapSettings {
     static final int PARK_POINTS = 5;
     static final int TIP_POINTS = 20;
 
+    /**
+     * How far a {@code seek} without a {@code within} arg looks, inches: the default of
+     * VisionTuning.within (subsystems/, which the maps can't use). Change both together.
+     */
+    static final double SEEK_WITHIN = 36;
+
     /** Samples per path when drawing it and checking where the robot goes. */
     static final int PATH_SAMPLES = 60;
 

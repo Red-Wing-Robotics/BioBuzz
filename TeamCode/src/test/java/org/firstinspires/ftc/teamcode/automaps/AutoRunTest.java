@@ -64,6 +64,48 @@ public class AutoRunTest {
         assertTrue(r.problems.toString(), mentions(r, "HIVE"));
     }
 
+    private static final String SEEK = "{ \"seek\": \"vision.ball\", \"args\": { \"within\": 30 }, \"timeout\": 3 }";
+
+    @Test
+    public void aSeekSearchesThenADriveToGuessesFromWhereItWas() {
+        AutoRun r = run(Alliance.RED, GOOD_WAYPOINTS,
+                "{ \"follow\": { \"line\": [\"START\", \"OUT\"] } }, " + SEEK + ", { \"driveTo\": \"PARK\", \"timeout\": 4 }");
+        assertEquals(1, r.searches.size());
+        assertEquals(30, r.searches.get(0).radius, 0);
+        assertEquals(24, r.searches.get(0).x, 1e-6);
+        assertEquals("only the follow is a known leg", 1, r.legs.size());
+        assertEquals(1, r.guesses.size());
+        assertTrue(r.problems.toString(), r.problems.isEmpty());
+        assertEquals(AutoRun.moveSeconds(r.legs.get(0).length) + 3 + 4, r.seconds, 1e-9);
+        assertTrue(r.rows.get(2).text, r.rows.get(2).text.contains("from wherever step 2 ended"));
+    }
+
+    @Test
+    public void aFollowAfterASeekIsFlagged() {
+        AutoRun r = run(Alliance.RED, GOOD_WAYPOINTS,
+                "{ \"follow\": { \"line\": [\"START\", \"OUT\"] } }, " + SEEK + ", { \"follow\": { \"line\": [\"OUT\", \"PARK\"] } }");
+        assertTrue(r.problems.toString(), mentions(r, "\"driveTo\": \"OUT\""));
+    }
+
+    @Test
+    public void endingOnASeekIsFlagged() {
+        AutoRun r = run(Alliance.RED, GOOD_WAYPOINTS, "{ \"follow\": { \"line\": [\"START\", \"OUT\"] } }, " + SEEK);
+        assertTrue(r.problems.toString(), mentions(r, "End with a driveTo"));
+    }
+
+    @Test
+    public void aDriveToFromAKnownPoseIsPlannedRoundTheHiveOnOurHalf() {
+        // A straight line from START to FAR would clip the HIVE's corner.
+        AutoRun r = run(Alliance.RED, "\"START\": [9, 72, 0], \"FAR\": [58, 122, 90]", "{ \"driveTo\": \"FAR\" }");
+        assertEquals(1, r.legs.size());
+        assertTrue(r.problems.toString(), r.problems.isEmpty());
+        assertEquals(58, r.end.x(), 1e-6);
+        assertEquals(122, r.end.y(), 1e-6);
+        for (AutoRun r2 : new AutoRun[] {run(Alliance.BLUE, "\"START\": [9, 72, 0], \"FAR\": [58, 122, 90]", "{ \"driveTo\": \"FAR\" }")}) {
+            assertTrue("BLUE too: " + r2.problems, r2.problems.isEmpty());
+        }
+    }
+
     @Test
     public void timeModelAndStepTimesAddUp() {
         // 12 in never reaches cruise speed: 2·sqrt(d/a) plus settle.

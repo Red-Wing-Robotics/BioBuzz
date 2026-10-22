@@ -22,7 +22,11 @@ public abstract class JsonAutoOpMode extends AutoOpMode {
     /** File name without extension: assets/autos/NAME.json or /sdcard/FIRST/autos/NAME.json. */
     protected abstract String routeName();
 
-    /** Register the actions and conditions this route may use, e.g. {@code r.action("shooter.spinUp", args -> shooter.spinUp())}. */
+    /**
+     * Register the actions, conditions and seeks this route may use, e.g.
+     * {@code r.action("shooter.spinUp", args -> shooter.spinUp())}. Subsystems made in
+     * {@code createSubsystems()} exist by now.
+     */
     protected void registerActions(ActionRegistry registry) {}
 
     @Override
@@ -41,8 +45,8 @@ public abstract class JsonAutoOpMode extends AutoOpMode {
         registerActions(registry);
         compiler = new RouteCompiler(alliance(), AutoWaypoints.waypoints, registry);
         // The checksum matches the one tools/routeview shows for the file it pushed.
-        telemetry.addData("route", "%s — %s · %s", name, source, loaded.checksum);
-        telemetry.addData("waypoints", AutoWaypoints.reloadFromFileOnInit ? "from file" : "from Panels (reloadFromFileOnInit=false)");
+        initLine("route", name + " — " + source + " · " + loaded.checksum);
+        initLine("waypoints", AutoWaypoints.reloadFromFileOnInit ? "from file" : "from Panels (reloadFromFileOnInit=false)");
     }
 
     @Override

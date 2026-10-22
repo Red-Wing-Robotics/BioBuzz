@@ -64,8 +64,16 @@ save (it pushes), INIT, START, watch, STOP, put the robot back.
   closed). One started on the Driver Station is left alone. **Stand by the robot with the Driver
   Station**; its STOP works as always.
 - The bar warns when the hub's copy of the route isn't the laptop's, since INIT loads the hub's.
-- It uses SDK internals (`OpModeManagerImpl`, `RegisteredOpModes`) as FTC Dashboard and Panels do,
-  so an SDK update can break it; that shows up as a dev-build compile error.
+- **Driver Station telemetry:** the box under the bar shows the same lines as the Driver Station,
+  for whatever OpMode is running, however it was started. When it stops, the box keeps the last
+  run's lines, so a step that ended early (a vision seek that found nothing, say) can still be
+  read. The robot copies each telemetry message on its way to the Driver Station
+  (`TelemetryTap`); that's Wi-Fi telemetry, so it's dev builds only (R704). Older dev builds don't
+  send it, and the box says so.
+- It uses SDK internals (`OpModeManagerImpl`, `RegisteredOpModes`, and OpModes' link to the
+  Driver Station for telemetry) as FTC Dashboard and Panels do, so an SDK update can break it.
+  That shows up as a dev-build compile error, or for telemetry, as an empty box and a warning in
+  the robot log.
 
 ## The page
 
@@ -84,9 +92,13 @@ save (it pushes), INIT, START, watch, STOP, put the robot back.
   event. *Remove* deletes the hub's override so the robot goes back to the APK copy. After an APK
   update, remove overrides you don't want, or the hub keeps running them.
 
-Warnings (yellow) don't block a push. The usual one is an `action`/`waitUntil` name that no
-`.action("…")` / `.condition("…")` in TeamCode registers. That's a text search, so a name built at
-runtime gets a false warning, but a real typo fails INIT on the robot.
+Warnings (yellow) don't block a push. The usual one is an `action`/`waitUntil`/`seek` name that no
+`.action("…")` / `.condition("…")` / `.seek("…")` in TeamCode registers. That's a text search, so
+a name built at runtime gets a false warning, but a real typo fails INIT on the robot.
+
+A route using new step kinds (such as `seek` and `driveTo`) needs a robot build that knows them.
+Pushing one to a hub running an older build makes INIT fail there; install the current dev build
+first.
 
 ## How it works
 

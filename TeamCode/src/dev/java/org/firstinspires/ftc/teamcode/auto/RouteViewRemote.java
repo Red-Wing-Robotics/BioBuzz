@@ -9,14 +9,17 @@ import com.qualcomm.ftccommon.FtcEventLoop;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.OpModeManagerImpl;
 import com.qualcomm.robotcore.eventloop.opmode.OpModeManagerNotifier;
+import com.qualcomm.robotcore.robocol.TelemetryMessage;
 import com.qualcomm.robotcore.util.RobotLog;
 import com.qualcomm.robotcore.util.WebHandlerManager;
 
 import org.firstinspires.ftc.ftccommon.external.OnCreateEventLoop;
 import org.firstinspires.ftc.ftccommon.external.WebHandlerRegistrar;
 import org.firstinspires.ftc.robotcore.internal.opmode.OpModeMeta;
+import org.firstinspires.ftc.robotcore.internal.opmode.OpModeServices;
 import org.firstinspires.ftc.robotcore.internal.opmode.RegisteredOpModes;
 
+import java.lang.reflect.Field;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -27,7 +30,8 @@ import fi.iki.elonen.NanoHTTPD;
  * through the robot's own web server (port 8080; Jimothy reaches it with adb forward).
  *
  * <pre>
- * GET  /routeview/status        protocol, active OpMode, its phase, the autonomous OpModes; also the heartbeat
+ * GET  /routeview/status        protocol, active OpMode, its phase, the autonomous OpModes, and the
+ *                               latest OpMode's Driver Station telemetry; also the heartbeat
  * POST /routeview/init?name=X   INIT an autonomous OpMode (only when none is active)
  * POST /routeview/start         START the OpMode in INIT
  * POST /routeview/stop          stop the active OpMode
@@ -38,6 +42,11 @@ import fi.iki.elonen.NanoHTTPD;
  * Station's AUTO timer. The Driver Station can stop it as always. POSTs need the X-RouteView
  * header, which a page on another site can't send, so browsing the web from the robot's network
  * can't drive the robot.
+ *
+ * Telemetry: at each INIT the OpMode's link to the Driver Station is wrapped so every telemetry
+ * message is copied ({@link TelemetryTap}) on its way. Jimothy shows the same lines as the Driver
+ * Station, for any OpMode, however it was started. This is Wi-Fi telemetry, which R704 bans in
+ * matches, so it exists only in dev builds, like the rest of this class.
  */
 public final class RouteViewRemote {
 
@@ -48,7 +57,8 @@ public final class RouteViewRemote {
     /**
      * In every status, so Jimothy can tell an out-of-date dev build on the robot from a bug. Bump
      * it with RobotLink.PROTOCOL (RobotLinkTest checks they match) when this file's behaviour
-     * changes. 1: builds before it was added.
+     * changes. 1: builds before it was added. An added status field that Jimothy can do without
+     * (like {@code telemetry}) doesn't need a bump: Jimothy says so when a build lacks it.
      */
     static final int PROTOCOL = 2;
 
@@ -62,6 +72,7 @@ public final class RouteViewRemote {
     /** Guards itself and {@link #details}. */
     private static final RemoteRunGuard guard = new RemoteRunGuard();
     private static final Map<String, JsonObject> details = new HashMap<>();
+    private static final TelemetryTap telemetry = new TelemetryTap();
     private static boolean watching;
 
     private RouteViewRemote() {}
@@ -72,7 +83,10 @@ public final class RouteViewRemote {
         RouteViewRemote.eventLoop = eventLoop;
         manager = m;
         listener = new OpModeManagerNotifier.Notifications() {
-            @Override public void onOpModePreInit(OpMode opMode) { phase(m, "INIT"); }
+            @Override public void onOpModePreInit(OpMode opMode) {
+                tapTelemetry(m, opMode);
+                phase(m, "INIT");
+            }
             @Override public void onOpModePreStart(OpMode opMode) { phase(m, "RUNNING"); }
             @Override public void onOpModePostStop(OpMode opMode) { phase(m, "IDLE"); }
         };
@@ -114,6 +128,65 @@ public final class RouteViewRemote {
         }
         if (!idle) {
             RobotLog.ii(TAG, "%s: %s", name, next);
+        }
+    }
+
+    /**
+     * Event loop thread, just before the OpMode's init(): wrap its link to the Driver Station so
+     * every telemetry message is copied for Jimothy. The SDK sets that link (a package-private
+     * field) just before this call and never again for the OpMode. If an SDK update changes that,
+     * Jimothy just shows no telemetry; the Driver Station is never affected.
+     */
+    private static void tapTelemetry(OpModeManagerImpl m, OpMode opMode) {
+        String name = m.getActiveOpModeName();
+        if (name == null || name.equals(OpModeManagerImpl.DEFAULT_OP_MODE_NAME)) {
+            return; // the SDK's idle placeholder: keep the last OpMode's lines to read after it stops
+        }
+        telemetry.begin(name);
+        try {
+            Field field = servicesField(opMode.getClass());
+            field.setAccessible(true);
+            OpModeServices sdk = (OpModeServices) field.get(opMode);
+            if (sdk != null && !(sdk instanceof Tapped)) {
+                field.set(opMode, new Tapped(sdk));
+            }
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            RobotLog.ww(TAG, "can't copy telemetry for Jimothy: %s", e);
+        }
+    }
+
+    private static Field servicesField(Class<?> c) throws NoSuchFieldException {
+        for (Class<?> k = c; k != null; k = k.getSuperclass()) {
+            try {
+                return k.getDeclaredField("internalOpModeServices");
+            } catch (NoSuchFieldException notHere) {
+                // keep looking up the hierarchy: it's declared on the SDK's OpModeInternal
+            }
+        }
+        throw new NoSuchFieldException("internalOpModeServices");
+    }
+
+    /** Passes everything to the SDK's own services, keeping a copy of each telemetry message. */
+    private static final class Tapped implements OpModeServices {
+        private final OpModeServices sdk;
+
+        Tapped(OpModeServices sdk) {
+            this.sdk = sdk;
+        }
+
+        @Override
+        public void refreshUserTelemetry(TelemetryMessage message, double sInterval) {
+            try {
+                telemetry.record(message.getDataStrings());
+            } catch (RuntimeException e) {
+                // a copy for Jimothy must never cost the Driver Station its telemetry
+            }
+            sdk.refreshUserTelemetry(message, sInterval);
+        }
+
+        @Override
+        public void requestOpModeStop(OpMode opMode) {
+            sdk.requestOpModeStop(opMode);
         }
     }
 
@@ -223,6 +296,8 @@ public final class RouteViewRemote {
         out.addProperty("error", RobotLog.hasGlobalErrorMsg() ? RobotLog.getGlobalErrorMsg() : null);
         // The SDK's own view, in case it and the listener ever disagree; the page enables STOP on it.
         out.addProperty("sdkActive", sdkActive());
+        // The latest OpMode's Driver Station lines, live while it runs and kept after it stops.
+        out.add("telemetry", telemetry.toJson());
         JsonArray list = new JsonArray();
         for (OpModeMeta meta : RegisteredOpModes.getInstance().getOpModes()) {
             if (meta.flavor == OpModeMeta.Flavor.AUTONOMOUS) {

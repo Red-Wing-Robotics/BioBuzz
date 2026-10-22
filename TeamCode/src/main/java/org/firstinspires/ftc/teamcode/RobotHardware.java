@@ -1,5 +1,6 @@
 package org.firstinspires.ftc.teamcode;
 
+import com.qualcomm.hardware.limelightvision.Limelight3A;
 import com.qualcomm.hardware.lynx.LynxModule;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 
@@ -56,5 +57,10 @@ public class RobotHardware {
 
     public HardwareMap getHardwareMap() {
         return hardwareMap;
+    }
+
+    /** The Limelight 3A, or null if the robot configuration has no {@link #LIMELIGHT}. */
+    public Limelight3A limelight() {
+        return hardwareMap.tryGet(Limelight3A.class, LIMELIGHT);
     }
 }

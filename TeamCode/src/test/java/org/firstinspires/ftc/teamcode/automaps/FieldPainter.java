@@ -177,11 +177,19 @@ final class FieldPainter {
 
         page.stroke(c).lineWidth(1.7).roundCaps();
         for (AutoRun.Leg leg : run.legs) {
-            for (int i = 0; i < leg.samples.size(); i++) {
-                Pose p = leg.samples.get(i);
-                if (i == 0) page.moveTo(px(p.x()), py(p.y())); else page.lineTo(px(p.x()), py(p.y()));
-            }
-            page.strokePath();
+            line(leg);
+            chevron(leg, c);
+        }
+        // After a seek the robot could be anywhere: its search area, and guessed legs, are dashed.
+        page.stroke(c).lineWidth(1.2).dash(3, 2.5);
+        for (AutoRun.Leg leg : run.guesses) {
+            line(leg);
+        }
+        for (AutoRun.Search search : run.searches) {
+            searchArea(search, run.alliance);
+        }
+        page.solid();
+        for (AutoRun.Leg leg : run.guesses) {
             chevron(leg, c);
         }
         page.buttCaps();
@@ -210,6 +218,28 @@ final class FieldPainter {
             page.fill(c).stroke(WHITE).lineWidth(0.8).circle(x, y, 5.6).fillAndStroke();
             page.text(Font.BOLD, 6.5, WHITE, x, y - 2.3, Align.CENTER, String.valueOf(b.number));
         }
+    }
+
+    private void line(AutoRun.Leg leg) {
+        for (int i = 0; i < leg.samples.size(); i++) {
+            Pose p = leg.samples.get(i);
+            if (i == 0) page.moveTo(px(p.x()), py(p.y())); else page.lineTo(px(p.x()), py(p.y()));
+        }
+        page.strokePath();
+    }
+
+    /** A seek's circle, cut off at the centre line (AUTO stays on our half) and at the walls. */
+    private void searchArea(AutoRun.Search s, Alliance alliance) {
+        double lo = alliance == Alliance.RED ? 0 : CENTER;
+        double hi = alliance == Alliance.RED ? CENTER : SIZE;
+        int n = 72;
+        for (int i = 0; i <= n; i++) {
+            double a = 2 * Math.PI * i / n;
+            double x = Math.max(lo, Math.min(hi, s.x + s.radius * Math.cos(a)));
+            double y = Math.max(0, Math.min(SIZE, s.y + s.radius * Math.sin(a)));
+            if (i == 0) page.moveTo(px(x), py(y)); else page.lineTo(px(x), py(y));
+        }
+        page.strokePath();
     }
 
     /** The robot's outline at a pose; the thick edge is its front. */

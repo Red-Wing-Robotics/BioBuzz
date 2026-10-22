@@ -15,6 +15,7 @@ def teamCodeSrc = file('../../TeamCode/src')
 def TEAMCODE_SOURCES = [
         // TeamCode/src/main/java — the route engine the robot runs
         'org/firstinspires/ftc/teamcode/auto/Alliance.java',
+        'org/firstinspires/ftc/teamcode/auto/AutoClearance.java',
         'org/firstinspires/ftc/teamcode/auto/AutoContext.java',
         'org/firstinspires/ftc/teamcode/auto/DrivePlan.java',
         'org/firstinspires/ftc/teamcode/auto/Field.java',

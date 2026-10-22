@@ -33,8 +33,14 @@ public class ControlSchemesTest {
 
     private static final double EPS = 1e-9;
 
-    private static List<ControlScheme> allSchemes() {
+    /** The layouts drivers use in TeleOp; they share the shooting-spot buttons. */
+    private static List<ControlScheme> matchSchemes() {
         return Arrays.asList(new TwoDriverScheme(), new SoloScheme(), new AimScheme(), new AimShooterScheme());
+    }
+
+    private static List<ControlScheme> allSchemes() {
+        return Arrays.asList(new TwoDriverScheme(), new SoloScheme(), new AimScheme(), new AimShooterScheme(),
+                new VisionBenchScheme());
     }
 
     private static DriverCommands map(ControlScheme scheme, DriverInput in) {
@@ -132,7 +138,7 @@ public class ControlSchemesTest {
 
     @Test
     public void driverDpadGoesToTheShootingSpots() {
-        for (ControlScheme scheme : allSchemes()) {
+        for (ControlScheme scheme : matchSchemes()) {
             DriverInput in = new DriverInput();
             assertEquals(scheme.name(), Collections.singletonList(Assist.SHOOT_LEFT),
                     loop(scheme, in, in.gamepad1, Button.DPAD_LEFT, true).pressedAssists());
@@ -140,6 +146,19 @@ public class ControlSchemesTest {
             assertEquals(scheme.name(), Collections.singletonList(Assist.SHOOT_RIGHT),
                     loop(scheme, in, in.gamepad1, Button.DPAD_RIGHT, true).pressedAssists());
         }
+    }
+
+    @Test
+    public void benchAHoldsTheBallDriveAndBForgetsOncePerPress() {
+        ControlScheme scheme = new VisionBenchScheme();
+        DriverInput in = new DriverInput();
+        assertEquals(Collections.singletonList(Assist.TO_BALL), loop(scheme, in, in.gamepad1, Button.A, true).heldAssists());
+        assertEquals("held: asked for every loop", Collections.singletonList(Assist.TO_BALL),
+                loop(scheme, in, in.gamepad1, Button.A, true).heldAssists());
+        assertTrue(loop(scheme, in, in.gamepad1, Button.A, false).heldAssists().isEmpty());
+
+        assertEquals(Collections.singletonList(Assist.FORGET_BALLS), loop(scheme, in, in.gamepad1, Button.B, true).pressedAssists());
+        assertTrue("still held: no second request", loop(scheme, in, in.gamepad1, Button.B, true).pressedAssists().isEmpty());
     }
 
     @Test

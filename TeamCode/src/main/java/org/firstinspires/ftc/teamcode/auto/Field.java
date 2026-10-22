@@ -55,6 +55,24 @@ public final class Field {
         return px * SIZE / IMAGE_PX;
     }
 
+    /**
+     * True if {@code x}, in {@code alliance}'s frame (where its poses are), is on that alliance's
+     * half: red below the centre line, blue above it (columns A–C and D–F).
+     */
+    public static boolean onOwnHalf(Alliance alliance, double x) {
+        return alliance == Alliance.RED ? x <= CENTER : x >= CENTER;
+    }
+
+    /**
+     * The other alliance's half of the field, in {@code alliance}'s frame, reaching well past the
+     * walls so no route is found round its ends. G402 keeps AUTO on our half.
+     */
+    public static KeepOut opponentHalf(Alliance alliance) {
+        return alliance == Alliance.RED
+                ? new KeepOut(CENTER, -SIZE, 2 * SIZE, 2 * SIZE)
+                : new KeepOut(-SIZE, -SIZE, CENTER, 2 * SIZE);
+    }
+
     /** {@code k} turned 180° about the field centre, as BLUE poses are ({@link Alliance}). */
     private static KeepOut rotated(KeepOut k) {
         return new KeepOut(SIZE - k.maxX, SIZE - k.maxY, SIZE - k.minX, SIZE - k.minY);

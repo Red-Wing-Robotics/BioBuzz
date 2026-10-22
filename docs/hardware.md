@@ -29,6 +29,17 @@ No test can catch these. Tick each one here, and fix the table row or code it na
       use Belteshazzar's values.
 - [ ] **Robot footprint**: `auto/RobotSize.java` holds the 18 × 18 maximum, and the TeleOp
       assists' clearance from the HIVE depends on it (docs/decisions.md, 2026-10-11).
+- [ ] **Limelight pitch, checked optically**: put a ball straight ahead at measured floor
+      distances `d` from the point under the lens and read `ty`. Each reading gives
+      pitch = ty + atan((7.75 − ball centre height) / d), and they should average about 33.3°.
+- [ ] **Ball sizes**: caliper a real POLLEN and NECTAR. The Limelight section and `vision/BallKind`
+      assume 2.8 in and 3.6 in.
+- [ ] **Limelight pipelines**: upload Hive-Vision's v1.1.0 model and labels to a Neural Detector
+      pipeline (CPU, threshold about 0.40), set up an AprilTag pipeline, and record both slots in
+      the Limelight section and `VisionTuning`.
+- [ ] **Ball model on the camera** (the vision bench, `opmodes/test/readme.md`): frame rate,
+      bumpers or tape read as NECTAR, the confidence scale, then the latency spin test
+      (`VisionTuning.extraMs`).
 
 ## Control Hub
 
@@ -41,7 +52,7 @@ No test can catch these. Tick each one here, and fix the table row or code it na
 | Servo 0 | Servo | `rightFeeder` | feeder, right | | |
 | Servo 1 | Servo | `diverter` | diverter | | |
 | Servo 2 | PWM | `light` | indicator light | | TODO device type (e.g. goBILDA RGB indicator) |
-| Ethernet | — | `limelight` | Limelight 3A | | The only legal programmable vision coprocessor (R702) |
+| USB (Ethernet over USB) | — | `limelight` | Limelight 3A | | The only legal programmable vision coprocessor (R702). Mount and pipelines: "Limelight 3A mount" |
 
 ## Expansion Hub
 
@@ -72,6 +83,43 @@ No test can catch these. Tick each one here, and fix the table row or code it na
 | X (forward) pod offset | −4 23⁄32 in (−4.719 in) | TODO measure (differs; Belteshazzar's value as placeholder) |
 | Y (strafe) pod offset | −2 11⁄32 in (−2.344 in) | TODO measure (differs; Belteshazzar's value as placeholder) |
 | Pod directions | X REVERSED, Y FORWARD | same |
+
+## Limelight 3A mount — measured 2026-10-15
+
+Measured from the robot's tracking centre (the point the Pinpoint pod offsets use), on a field
+tile. Forward is the launcher side; left is positive. Hive-Vision's names for the same values are
+in brackets.
+
+| Property | Value |
+|---|---|
+| Lens height above the tiles | 7 3⁄4 in (7.75) `[CAM_H]` |
+| Pitch, below horizontal | 33.3° `[CAM_PITCH_DEG]` |
+| Forward offset | 6 3⁄4 in (6.75) `[CAM_X_OFFSET]` |
+| Left offset | 6 1⁄8 in (6.125) `[CAM_Y_OFFSET]` |
+| Yaw / roll | 0° / 0° |
+| Nearest visible floor (measured) | 4 in |
+| Field of view (spec) | 54.5° × 42° |
+| Ball pipeline (Hive-Vision model, Neural Detector) | slot 0, **placeholder** `[VisionTuning.ballPipeline]` |
+| AprilTag pipeline | slot 1, **placeholder** `[VisionTuning.tagPipeline]` |
+
+Runtime truth: `subsystems/VisionTuning.java`. Change a value there and here together.
+
+What it sees, worked out from these numbers (POLLEN centre 1.4 in, NECTAR 1.8 in up):
+- **Ball centres from about 4.5 in to 29 in ahead of the lens** (NECTAR to 27 in), across about
+  8 in at the near edge and 28 in at the far edge. Beyond about 36 in from the tracking centre,
+  balls are out of view.
+- **Usable: about 5 in to 25 in ahead of the lens.** The tracker ignores balls within 2° of an
+  image edge (`VisionTuning.edgeMargin`), where they may be cut off. Put a seek's start waypoint
+  so the balls you expect are in that band, and not at its far end. The first vision-seek test
+  (2026-10-15) stopped 26 in from the GARDEN balls: the camera saw them at the top edge, every one
+  was ignored, and the seek gave up. The DS "vision frame" line shows this as "… at the image edge".
+- **Off-centre:** the lens is 6 in left of the centreline, so a ball dead ahead of the robot
+  only comes into view about 17 in ahead of the tracking centre. Closer than that it's out of
+  frame to the right.
+- **Range error per degree of pitch error:** 0.5 in at 12 in, 1 in at 18 in, 2.4 in at the far
+  edge.
+- **Nothing above lens height is ever in view:** the top of the image is 12° below horizontal.
+  This mount can't read the CELL-underside AprilTags.
 
 ## PedroPathing Foresight constants
 
@@ -105,7 +153,7 @@ backup if those files are ever lost.
 | Diverter | `diverter` (servo) | | |
 | Intake | `intake` (motor) | | G407: never CONTROL more than 4 balls — needs a count/stop |
 | Light | `light` | | driver / alliance signalling |
-| Vision | Limelight 3A (`limelight`) | | AprilTags on CELL undersides — see docs/field.md |
+| Vision | Limelight 3A (`limelight`) | | Floor balls (Hive-Vision; `subsystems/Vision`, `vision/`). The current mount can't see the CELL-underside AprilTags (docs/field.md): see "Limelight 3A mount" |
 
 ## Devices
 

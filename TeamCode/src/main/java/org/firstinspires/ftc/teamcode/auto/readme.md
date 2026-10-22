@@ -59,9 +59,18 @@ file serves both alliances. Origin, axes, heading and the BLUE rotation are defi
 | `{ "waitUntil": "intake.hasBall" }` | a registered condition |
 | `{ "action": "shooter.fire", "args": { "count": 3 } }` | a registered subsystem action |
 | `{ "hold": "PARK", "timeout": 2 }` | hold a pose (timeout required) |
+| `{ "seek": "vision.ball", "args": { "colors": "pollen" }, "timeout": 4 }` | a registered drive to somewhere the robot decides, e.g. a ball the camera sees (timeout required) |
+| `{ "driveTo": "PARK" }` | drive to a waypoint from wherever the robot is, planned on the robot round the HIVE and off the other half (`AutoClearance`) |
 
 Modifiers on any step: `"name"` (Driver Station telemetry) and `"timeout"` (seconds; interrupts).
-`"args"` goes only with `"action"`.
+`"args"` goes only with `"action"` or `"seek"`.
+
+**After a `seek` the robot could be anywhere**, so get back onto the route with a `driveTo`: a
+`follow` would start its path from wherever the seek ended. The auto maps draw a seek's search
+area and the `driveTo` after it as dashed guesses, and flag a `follow` straight after a seek
+(docs/auto-maps.md). `vision.ball`'s args are in `vision/ToBallArgs`: `colors` (`"pollen"`,
+`"nectar"` for ours, `"ours"` for both), `within` and `standoff` in inches, `look` in seconds, and
+`prefer` (`"most"`, the default: a bigger group of balls about as near wins; or `"nearest"`).
 
 `follow` heading (default: linear from the first waypoint's heading to the last's):
 `"heading": "tangent"` · `"reverseTangent"` · `{ "constant": 90 }` · `{ "linear": [0, 90] }` ·
@@ -74,10 +83,13 @@ defined twice is an error, not a silent override.
 
 ## Java side
 
-- `JsonAutoOpMode` — subclass, return `routeName()`, and register actions the file may use:
+- `JsonAutoOpMode` — subclass, return `routeName()`, create subsystems in `createSubsystems()`
+  with `add(...)`, and register what the file may use in `registerActions`:
   `registry.action("shooter.fire", args -> shooter.fire(args.get("count").getAsInt()))`,
-  `registry.condition("intake.hasBall", intake::hasBall)`. Nested `Red`/`Blue` classes register
-  the two OpModes (see `opmodes/auto/LeaveAndParkAuto`).
+  `registry.condition("intake.hasBall", intake::hasBall)`, `registry.seek("vision.ball", vision::toBall)`.
+  Use string literals: Jimothy finds registered names by searching the source. Nested
+  `Red`/`Blue` classes register the two OpModes (see `opmodes/auto/LeaveAndParkAuto`, and
+  `VisionSeekAuto` for vision).
 - `Step` — what actions implement: `start` / non-blocking `update` returning done / `end`.
 - `Steps` — the same combinators as the JSON (`sequence`, `parallel`, `race`, `withTimeout`,
   `waitSeconds`, `waitUntil`, `instant`, `follow`, `hold`) for routines written in Java
@@ -86,6 +98,9 @@ defined twice is an error, not a silent override.
 - `DrivePlan` — the quickest way to a pose that keeps every part of the robot a margin from a
   set of obstacles, round them or between them: straight legs, a heading square to the field
   beside an obstacle, turns where there's room. Pure Java, unit-tested (`DrivePlanTest`).
+- `AutoClearance` — what AUTO's planned drives (`driveTo`, vision seeks) keep clear of: the
+  HIVE outline and the other alliance's half (G402), `MARGIN` inches. Jimothy compiles it, so the
+  maps draw the same plans.
 - `KeepOut` — a field rectangle, and the cheapest way round a set of them (straight lines via
   their corners, costed by distance or by `DrivePlan`'s driving time). Pure Java, unit-tested.
 - `Field` — the field's numbers in code: `SIZE`, `CENTER`, `HIVE` (the HIVE structure's outline

@@ -25,7 +25,7 @@ public class RouteCheckTest {
     @Rule public TemporaryFolder tmp = new TemporaryFolder();
 
     private static final RouteCheck.Registrations NONE =
-            new RouteCheck.Registrations(Collections.<String>emptySet(), Collections.<String>emptySet());
+            new RouteCheck.Registrations(Collections.<String>emptySet(), Collections.<String>emptySet(), Collections.<String>emptySet());
 
     private static String route(String routine) {
         return "{ \"waypoints\": { \"START\": [9, 72, 0], \"OUT\": [24, 72, 0] }, \"start\": \"START\","
@@ -72,13 +72,15 @@ public class RouteCheckTest {
     @Test
     public void unregisteredActionsAreWarningsNotErrors() {
         String json = route("{ \"action\": \"shooter.fire\" }, { \"waitUntil\": \"intake.full\" },"
-                + " { \"parallel\": [ { \"action\": \"intake.run\" } ] }");
+                + " { \"parallel\": [ { \"action\": \"intake.run\" } ] },"
+                + " { \"seek\": \"vision.ball\", \"args\": { \"colors\": \"pollen\" }, \"timeout\": 3 }, { \"driveTo\": \"OUT\" }");
         RouteCheck.Result r = RouteCheck.check(json, NONE);
         assertTrue(r.error, r.valid());
-        assertEquals(3, r.warnings.size());
+        assertEquals(4, r.warnings.size());
 
         RouteCheck.Registrations some = new RouteCheck.Registrations(
-                new TreeSet<>(Arrays.asList("shooter.fire", "intake.run")), new TreeSet<>(Collections.singletonList("intake.full")));
+                new TreeSet<>(Arrays.asList("shooter.fire", "intake.run")), new TreeSet<>(Collections.singletonList("intake.full")),
+                new TreeSet<>(Collections.singletonList("vision.ball")));
         assertTrue(RouteCheck.check(json, some).warnings.isEmpty());
     }
 
@@ -86,9 +88,11 @@ public class RouteCheckTest {
     public void findsRegisteredNamesInTheSources() throws IOException {
         File src = tmp.newFolder("java");
         Files.write(new File(src, "Auto.java").toPath(), ("registry.action(\"shooter.fire\", args -> shooter.fire())\n"
-                + "    .condition( \"intake.full\", intake::full);\n").getBytes(StandardCharsets.UTF_8));
+                + "    .condition( \"intake.full\", intake::full)\n"
+                + "    .seek(\"vision.ball\", vision::toBall);\n").getBytes(StandardCharsets.UTF_8));
         RouteCheck.Registrations found = RouteCheck.Registrations.scan(src);
         assertEquals(Collections.singleton("shooter.fire"), found.actions);
         assertEquals(Collections.singleton("intake.full"), found.conditions);
+        assertEquals(Collections.singleton("vision.ball"), found.seeks);
     }
 }

@@ -10,6 +10,11 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 import org.firstinspires.ftc.teamcode.RobotHardware;
 import org.firstinspires.ftc.teamcode.RobotId;
 import org.firstinspires.ftc.teamcode.pedro.Constants;
+import org.firstinspires.ftc.teamcode.subsystems.Subsystem;
+import org.firstinspires.ftc.teamcode.subsystems.Subsystems;
+
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 /**
  * Base class for declarative autonomous OpModes. Subclasses declare an alliance, a start
@@ -18,6 +23,11 @@ import org.firstinspires.ftc.teamcode.pedro.Constants;
  *
  * The routine is built during INIT, so waypoints edited in Panels take effect on the next INIT.
  * Nothing moves during INIT (G403/G304); the Pinpoint IMU calibrates, so keep the robot still.
+ *
+ * Subsystems are created in {@link #createSubsystems} and registered with {@link #add}. Every
+ * loop: clear the bulk cache → each subsystem's {@code periodic()} → the routine →
+ * {@code follower.update()}. Their status shows on the Driver Station from INIT on, and they stop
+ * when the OpMode does.
  */
 public abstract class AutoOpMode extends OpMode {
 
@@ -25,6 +35,8 @@ public abstract class AutoOpMode extends OpMode {
     protected Follower follower;
 
     private final ElapsedTime timer = new ElapsedTime();
+    private final Subsystems subsystems = new Subsystems();
+    private final Map<String, String> initLines = new LinkedHashMap<>();
     private AutoContext ctx;
     private Step routine;
     private boolean finished;
@@ -36,8 +48,24 @@ public abstract class AutoOpMode extends OpMode {
     /** Build the routine. Called once per INIT, after {@link #follower} exists. */
     protected abstract Step routine();
 
-    /** Optional: load data, create subsystems. Runs after the Follower exists, before the start pose and routine are read. */
+    /**
+     * Optional: create subsystems from {@link #robot} and {@link #follower}, registering each with
+     * {@link #add}. Runs first in INIT, so everything after can use them. Must not move anything (G403).
+     */
+    protected void createSubsystems() {}
+
+    /** Optional: load data. Runs after {@link #createSubsystems}, before the start pose and routine are read. */
     protected void onInit() {}
+
+    /** Register a subsystem: it runs every loop, shows its status, and stops with the OpMode. Returns it. */
+    protected final <T extends Subsystem> T add(T subsystem) {
+        return subsystems.add(subsystem);
+    }
+
+    /** A Driver Station line shown for the whole of INIT. An empty caption shows the value alone. */
+    protected final void initLine(String caption, String value) {
+        initLines.put(caption, value);
+    }
 
     @Override
     public final void init() {
@@ -46,13 +74,20 @@ public abstract class AutoOpMode extends OpMode {
         follower = Constants.create(hardwareMap, robotId);
         ctx = new AutoContext(robot, follower, timer::seconds);
         finished = false;
+        createSubsystems();
         onInit();
         follower.setPose(pose(startWaypoint()));
         routine = routine();
-        telemetry.addData("robot", Constants.describe(robotId));
-        telemetry.addData("alliance", alliance());
-        telemetry.addData("start", startWaypoint());
-        telemetry.addLine("Waypoints edited in Panels apply on re-INIT.");
+        initLine("robot", Constants.describe(robotId));
+        initLine("alliance", alliance().toString());
+        initLine("start", startWaypoint().toString());
+        initLine("", "Waypoints edited in Panels apply on re-INIT.");
+        showInit();
+    }
+
+    @Override
+    public final void init_loop() {
+        showInit(); // telemetry clears every loop: the INIT lines go again, with the subsystems' status
     }
 
     @Override
@@ -64,6 +99,7 @@ public abstract class AutoOpMode extends OpMode {
     @Override
     public final void loop() {
         robot.clearBulkCache();
+        subsystems.periodic();
         if (!finished) {
             finished = routine.update(ctx);
             if (finished) {
@@ -77,6 +113,7 @@ public abstract class AutoOpMode extends OpMode {
         telemetry.addData("time", "%.1f s", timer.seconds());
         telemetry.addData("pose", "x %.1f  y %.1f  heading %.0f°",
                 pose.x(), pose.y(), Math.toDegrees(pose.heading()));
+        subsystems.status(telemetry);
     }
 
     @Override
@@ -84,10 +121,22 @@ public abstract class AutoOpMode extends OpMode {
         if (routine != null && !finished) {
             routine.end(ctx, true);
         }
+        subsystems.stop(); // each one guarded: the pose below is always saved
         if (follower != null) {
             PoseHandoff.save(follower.pose()); // a TeleOp INIT'd soon after starts from here
             follower.stop();
         }
+    }
+
+    private void showInit() {
+        for (Map.Entry<String, String> line : initLines.entrySet()) {
+            if (line.getKey().isEmpty()) {
+                telemetry.addLine(line.getValue());
+            } else {
+                telemetry.addData(line.getKey(), line.getValue());
+            }
+        }
+        subsystems.status(telemetry);
     }
 
     // ---- path helpers, all in this OpMode's alliance frame ----------------------------

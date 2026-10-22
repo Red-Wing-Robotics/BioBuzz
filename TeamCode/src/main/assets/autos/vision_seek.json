@@ -1,0 +1,18 @@
+{
+  "name": "Vision Seek (test)",
+  "waypoints": {
+    "START":  [60, 135, -90],
+    "LEAVE":  [60, 108, -90],
+    "LANE":   [20, 108, -90],
+    "GARDEN": [25, 26, -90],
+    "PARK":   [20, 108, -90]
+  },
+  "start": "START",
+  "routine": [
+    { "follow": { "line": ["START", "LEAVE"] }, "name": "leave wall" },
+    { "follow": { "line": ["LEAVE", "LANE"] } },
+    { "follow": { "line": ["LANE", "GARDEN"] }, "name": "to the GARDEN" },
+    { "seek": "vision.ball", "args": { "colors": "pollen" }, "timeout": 4, "name": "to a POLLEN" },
+    { "driveTo": "PARK", "timeout": 6, "name": "park" }
+  ]
+}

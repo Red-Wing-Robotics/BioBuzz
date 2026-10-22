@@ -14,6 +14,8 @@ import org.firstinspires.ftc.teamcode.auto.AutoContext;
 import org.firstinspires.ftc.teamcode.auto.PoseHandoff;
 import org.firstinspires.ftc.teamcode.auto.Waypoint;
 import org.firstinspires.ftc.teamcode.pedro.Constants;
+import org.firstinspires.ftc.teamcode.subsystems.Subsystem;
+import org.firstinspires.ftc.teamcode.subsystems.Subsystems;
 
 import java.util.List;
 import java.util.Locale;
@@ -25,10 +27,12 @@ import java.util.Locale;
  * {@link #apply}. This class owns the loop, the gamepads, driving through the Follower, the
  * assists, the endgame cue, and telemetry.
  *
- * Every loop: clear the bulk cache → snapshot both gamepads → the scheme maps them to commands →
- * start/stop requested assists → drive sticks cancel driving assists → run assists → drive
- * manually unless an assist owns DRIVE (the heading aim, if engaged, supplies the turn) →
- * {@link #apply}.
+ * Every loop: clear the bulk cache → snapshot both gamepads → each subsystem's
+ * {@code periodic()} → the scheme maps the gamepads to commands → start/stop requested assists →
+ * drive sticks cancel driving assists → run assists → drive manually unless an assist owns DRIVE
+ * (the heading aim, if engaged, supplies the turn) → {@link #apply}. Subsystems are created in
+ * {@link #onInit} and registered with {@link #add}; their status shows from INIT on, and they stop
+ * with the OpMode.
  *
  * Start pose: where AUTO ended if it stopped within the last {@link PoseHandoff#MAX_AGE_SECONDS},
  * otherwise {@link #startWaypoint()}. Nothing moves during INIT (G403); the Driver Station shows
@@ -47,6 +51,7 @@ public abstract class TeleOpBase extends OpMode {
     private final ElapsedTime sinceStart = new ElapsedTime();
     private final ElapsedTime sinceLastLoop = new ElapsedTime();
     private final HeadingAim headingAim = new HeadingAim();
+    private final Subsystems subsystems = new Subsystems();
     private ControlScheme scheme;
     private AutoContext ctx;
     private Pose initialPose;
@@ -71,8 +76,13 @@ public abstract class TeleOpBase extends OpMode {
         return true;
     }
 
-    /** Optional: create subsystems from {@link #robot}. Must not move anything (G403). */
+    /** Optional: create subsystems from {@link #robot} and {@link #follower}, registering each with {@link #add}. Must not move anything (G403). */
     protected void onInit() {}
+
+    /** Register a subsystem: it runs every loop, shows its status, and stops with the OpMode. Returns it. */
+    protected final <T extends Subsystem> T add(T subsystem) {
+        return subsystems.add(subsystem);
+    }
 
     /** Optional: define the assists this TeleOp's schemes may request. Runs after {@link #onInit}. */
     protected void registerAssists(Assists assists) {}
@@ -155,6 +165,7 @@ public abstract class TeleOpBase extends OpMode {
         for (Binding binding : scheme.bindings()) {
             telemetry.addData(binding.input(), binding.action);
         }
+        subsystems.status(telemetry);
     }
 
     @Override
@@ -169,6 +180,7 @@ public abstract class TeleOpBase extends OpMode {
         sinceLastLoop.reset();
         robot.clearBulkCache();
         readGamepads();
+        subsystems.periodic();
         clock.update(sinceStart.seconds());
 
         commands.clear();
@@ -217,6 +229,7 @@ public abstract class TeleOpBase extends OpMode {
         telemetry.addData("intake", "%.2f", commands.intake);
         telemetry.addData("shooter", "%s%s", commands.shooterOn ? "on" : "off", commands.fire ? "  FIRE" : "");
         telemetry.addData("loop", "%.0f ms", loopMs);
+        subsystems.status(telemetry);
     }
 
     @Override
@@ -224,6 +237,7 @@ public abstract class TeleOpBase extends OpMode {
         if (ctx != null) {
             assists.cancelAll(ctx);
         }
+        subsystems.stop();
         if (follower != null) {
             follower.stop();
         }

@@ -23,6 +23,62 @@ placeholders. Only what differs is per-robot; `RobotSize`, `DriveFeel`, `Heading
 - **Rejected: detecting a marker device in the RC config.** Renaming a config entry would
   silently switch robots.
 
+## 2026-10-15 — Ball vision: Hive-Vision's model and tracking ideas, our own driving
+
+The Limelight 3A runs [Hive-Vision](https://github.com/hivevisionftc/Hive-Vision)'s ball model
+(v1.1.0, an SSD detector for POLLEN and red/blue NECTAR) in a Neural Detector pipeline. On the
+robot:
+- `vision/` turns detections into balls on the field. It adapts Hive-Vision's `BallTracker` ideas
+  (confidence gate, distinct-frame confirmation, colour-bound matching, ground range) under its
+  MIT licence (THIRD_PARTY_NOTICES.md).
+- `subsystems/Vision` is the only code touching the SDK's Limelight types.
+- `DriveToBall` is a `Step` that drives to a ball.
+- Routes get two step kinds:
+  - `seek` (`vision.ball`) drives where the robot decides;
+  - `driveTo` gets back onto the route's waypoints from wherever the robot is.
+- `Subsystem`/`add(...)` gives AUTO and TeleOp a per-loop hook. AutoOpMode had none, and the
+  intake will need one too.
+
+**Rejected: Hive-Vision's driving classes** (`BallHunt`, `BallWrangler`, `BallChaseFollower`).
+- Their `go()` blocks the loop, and `BallWrangler` sleeps.
+- They target Pedro 2. The Pedro 3 port is a beta that isn't tested in CI and ignores camera
+  offsets.
+- They use their own drive conventions (turn + clockwise).
+- Our `Step`s compose with routes, assists, timeouts and Jimothy's maps.
+
+**Balls are tracked as field positions, not image angles.** A ball keeps its identity while the
+robot drives and turns. The approach also finishes after the ball drops out of the bottom of the
+image (from about 4.5 in ahead of the lens), aiming at the remembered position. Each frame is
+placed from the robot's pose when it was captured: 60 ms late while turning fast puts a ball
+inches off.
+
+**Re-plan in field coordinates; don't steer by camera angle.** Steering from tx/ty with
+`follower.manual` would bypass Pedro's tuned control. It would also lose the ball close in, and
+couldn't be unit-tested. `DriveToBall` plans with `DrivePlan`, re-plans at most every 250 ms while
+the estimate moves, and freezes the target within 18 in.
+
+**`seek` is its own step kind, not an `action`.** Jimothy and the auto maps only see the file, and
+treat actions as instant no-ops. With `seek` the file says the robot went somewhere nobody can
+draw. The maps show a search area, the `driveTo` after it as a dashed guess, and flag a `follow`
+straight after a seek.
+
+**The camera's two jobs.** The 10-11 choice was balls in one OpMode, AprilTags in another.
+`Vision.Job` selects the pipeline at INIT, switching on a background thread because the TeleOp
+INIT falls inside the 8 s transition. But the mount measured today is pitched 33.3° down, and the
+top of its image is 12° below horizontal: it can't see the CELL-underside tags. So `TAGS` only
+selects a pipeline, and nothing reads tags. Open: re-mount for tags, or keep the Limelight
+ball-only.
+
+**Still to do on the robot (phase 0).** Hive-Vision's own checklist says the model hasn't been
+verified on a real Limelight 3A. Check:
+- frame rate;
+- bumpers or alliance tape read as NECTAR;
+- the pipeline indexes, the confidence scale (the SDK says 0–100, Hive-Vision 0–1; both are
+  accepted), the pitch and the latency, on the bench (`opmodes/test/readme.md`).
+
+The weights stay out of the repo and the APK: treat them as AGPL-3.0 until the author says
+otherwise. Pickup itself waits for the intake: G407 counting, and confirming a ball was taken.
+
 ## 2026-10-11 — Heading aim at our HIVE's CELLs, in separate Aim TeleOps
 
 `Red: Aim TeleOp` / `Blue: Aim TeleOp` (`CompTeleOp.RedAim` / `BlueAim`, `AimScheme`) are the

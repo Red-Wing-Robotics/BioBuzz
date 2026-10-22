@@ -18,7 +18,8 @@ Game rules summary: [RULES.md](RULES.md) — read it before designing any mechan
 ## Code structure (TeamCode)
 
 - `RobotHardware.java` — single source of truth for the competition robot's hardware config names and `hardwareMap` lookups. Never hardcode a config string anywhere else.
-- `subsystems/` — one class per mechanism (Drivetrain, Intake, Launcher, ...). Subsystems own their hardware and expose intent-level methods (`launch()`, `setIntake(...)`), not raw motor access.
+- `subsystems/` — one class per mechanism or sensor (`Vision`; Intake, Launcher, ... to come). Subsystems implement `Subsystem` (`periodic`/`status`/`stop`), are registered with `add(...)` in an OpMode's `createSubsystems()` (auto) or `onInit()` (TeleOp), own their hardware, and expose intent-level methods (`launch()`, `setIntake(...)`), not raw motor access.
+- `vision/` — hardware-free ball finding and driving on top of the Limelight's Hive-Vision model: `CameraMount`, `BallTracker`, `DriveToBall`, `PickupRules`. Only `subsystems/Vision` touches the SDK's Limelight types. Not compiled by Jimothy; `auto/` never imports it. See its `readme.md`.
 - `auto/` — autonomous engine: `JsonAutoOpMode` (routine from a JSON route file), `Step`/`Steps`,
   `Waypoint`/`Alliance`, `Field` (field size, centre, HIVE outline and floor rails), `KeepOut`
   (rectangles and the way round them), `DrivePlan` (TeleOp assist routes), `RobotSize`,
@@ -41,6 +42,7 @@ Game rules summary: [RULES.md](RULES.md) — read it before designing any mechan
   `opmodes/setup/`). Both robots run the same APK and OpModes and share `RobotHardware`.
 - `pedro/` — PedroPathing constants: shared ones in `Constants.java`, per-robot pod offsets and
   tuning in `Belteshazzar.java` / `Ashurbanipal.java`, picked by `RobotId`.
+- `opmodes/test/` — test OpModes (group `"test"`), e.g. `BallVisionBench` for calibrating the camera.
 - `opmodes/starterbot/` — OpModes for the goBILDA **StarterBot**, a different robot with its own
   RC config. Its config names are in `StarterBotHardware`, not `RobotHardware`. It's a vendored
   sample, so the competition conventions don't apply. See its readme.
@@ -71,6 +73,7 @@ Game rules summary: [RULES.md](RULES.md) — read it before designing any mechan
 ## Libraries
 
 - [PedroPathing](https://pedropathing.com/) for autonomous pathing (`com.pedropathing:revhub`; `tuning` is dev-only).
+- [Hive-Vision](https://github.com/hivevisionftc/Hive-Vision): its ball model runs on the Limelight; its tracking ideas are adapted in `vision/` (MIT, THIRD_PARTY_NOTICES.md). Its driving classes are not used (docs/decisions.md, 2026-10-15).
 - [Panels](https://panels.bylazar.com/) dashboard, **dev builds only** (`com.bylazar:fullpanels`),
   at http://192.168.43.1:8001. `@Configurable` classes with `public static` fields are live-editable;
   the annotation module is compile-only so the same code builds for `comp`.
@@ -116,4 +119,5 @@ work done. Code is not done until it compiles and tests pass. There is no simula
 - [docs/hardware.md](docs/hardware.md) — port map and config names. If it disagrees with `RobotHardware.java`, fix both.
 - [docs/coordinates.md](docs/coordinates.md) — the field coordinate system: the one definition.
 - [docs/field.md](docs/field.md) — AprilTag IDs, start poses, field positions (in that frame).
+- [docs/auto-maps.md](docs/auto-maps.md) — what the auto maps (docs/autos.pdf, Jimothy) draw, estimate and check.
 - [docs/decisions.md](docs/decisions.md) — dated design decisions. Check before proposing a change of direction; add an entry when one is made.

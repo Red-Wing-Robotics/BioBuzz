@@ -7,11 +7,13 @@ commands are in the repo's [CLAUDE.md](../../../../../../../../CLAUDE.md). Read
 | Where | What | Read |
 |---|---|---|
 | `RobotHardware` | config names, bulk reads | [docs/hardware.md](../../../../../../../../docs/hardware.md) |
-| `subsystems/` | one class per mechanism | [subsystems/readme.md](subsystems/readme.md) |
+| `subsystems/` | one class per mechanism or sensor (`Vision`) | [subsystems/readme.md](subsystems/readme.md) |
 | `auto/` | autonomous engine: JSON routes, `Step`s, `DrivePlan`, `Field` | [auto/readme.md](auto/readme.md) |
+| `vision/` | finding balls with the Limelight (Hive-Vision's model) and driving to them; hardware-free | [vision/readme.md](vision/readme.md) |
 | `opmodes/auto/` | one small class per route | [opmodes/auto/readme.md](opmodes/auto/readme.md) |
 | `teleop/` | TeleOp engine, assists, control schemes | [teleop/readme.md](teleop/readme.md) |
 | `opmodes/teleop/` | the competition TeleOp and its variants | [opmodes/teleop/readme.md](opmodes/teleop/readme.md) |
+| `opmodes/test/` | test OpModes, e.g. the vision bench | [opmodes/test/readme.md](opmodes/test/readme.md) |
 | `opmodes/starterbot/` | OpModes for the goBILDA StarterBot, a separate robot | [opmodes/starterbot/readme.md](opmodes/starterbot/readme.md) |
 | `pedro/` | PedroPathing constants | [pedro/readme.md](pedro/readme.md) |
 | `util/` | hardware-free helpers | [util/readme.md](util/readme.md) |
