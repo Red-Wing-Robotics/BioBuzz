@@ -119,20 +119,25 @@ runtime gets a false warning, but a real typo fails INIT on the robot.
 
 ## Brand
 
-**Jimothy** is the bee in the icon: a BioBuzz hive cell, a start waypoint and a dotted flight path,
-with Jimothy flying it. The icon is `src/main/resources/routeview/jimothy.svg`, served at
-`/jimothy.svg` as the favicon and the page header's logo.
+**Jimothy** is the raccoon in the icon, after Seattle's short-spined raccoon of the same name: a
+compact body with no waist, hips held high over long hind legs and the head carried low, waddling
+along a route (a start waypoint and a dotted path) through a simple woodland, framed by a
+pine-green BioBuzz hive cell. He is drawn in flat shaded fills, not outlines. The icon is
+`src/main/resources/routeview/jimothy.svg`, served at `/jimothy.svg` as the favicon and the page
+header's logo.
 
 | Colour | Hex | Used for |
 |---|---|---|
-| Honey | `#F4B41A` | the icon's hive cell and Jimothy's stripes |
-| Ink | `#1B2027` | the route, Jimothy's body, outlines |
-| White | `#FFFFFF` | wings, eye |
+| Ink | `#1B2027` | the route, Jimothy's mask and nose |
+| Fur | `#9AA3AD` head, `#8C949C` body, `#6E767F` back, `#7D858D` near legs, `#4A5058` far legs, `#B5BCC3` belly, `#C9CFD5` ears | Jimothy's coat |
+| Woods | `#CFE6EE` sky, `#2F6B45` / `#3F7D52` pines, `#6FA35A` grass, `#6B4A2E` trunks | the background |
+| Frame | `#24553A` | the hive-cell border |
+| White | `#FFFFFF` | muzzle, eyes |
 
 - The icon was checked from 256 px down to the 16 px browser tab, on light and dark backgrounds;
   keep its shapes bold if you change it.
-- Honey stays in the icon. In the app, amber already means *warning* and red/blue mean the
-  alliances, so the interface itself stays neutral.
+- In the app, amber already means *warning* and red/blue mean the alliances, so the interface
+  itself stays neutral.
 - The name is user-facing. Code names from before it (`tools/routeview`, `RouteView`,
   `RouteViewRemote`, the robot's `/routeview/` endpoints and `X-RouteView` header) stay as they
   are.
