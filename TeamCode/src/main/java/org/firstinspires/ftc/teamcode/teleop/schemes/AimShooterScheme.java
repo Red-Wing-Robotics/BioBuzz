@@ -19,18 +19,26 @@ import org.firstinspires.ftc.teamcode.teleop.ShotResult;
 public class AimShooterScheme extends AimScheme {
 
     /** How much one d-pad press changes the flywheel speed, ticks/s. */
-    public static final double VELOCITY_STEP = 100;
+    public static final double VELOCITY_STEP = 25;
 
     private final Binding shooter = button(GAMEPAD2, Button.RIGHT_BUMPER, "press: shooters on / off");
     private final Binding faster = button(GAMEPAD2, Button.DPAD_UP, "press: shooters +" + (int) VELOCITY_STEP + " ticks/s");
     private final Binding slower = button(GAMEPAD2, Button.DPAD_DOWN, "press: shooters -" + (int) VELOCITY_STEP + " ticks/s");
-    private final Binding logHit = button(GAMEPAD2, Button.A, "press: log shot as HIT (distance + speeds)");
-    private final Binding logMiss = button(GAMEPAD2, Button.X, "press: log shot as MISS (distance + speeds)");
+    /** Null in a subclass that asked for {@code shotLog = false} and binds A / X itself. */
+    private final Binding logHit;
+    private final Binding logMiss;
 
     private boolean shooterOn;
 
     public AimShooterScheme() {
+        this(true);
+    }
+
+    /** @param shotLog false leaves the operator's A / X (shot log) unbound, for a subclass that uses them */
+    protected AimShooterScheme(boolean shotLog) {
         super(false);
+        logHit = shotLog ? button(GAMEPAD2, Button.A, "press: log shot as HIT (distance + speeds)") : null;
+        logMiss = shotLog ? button(GAMEPAD2, Button.X, "press: log shot as MISS (distance + speeds)") : null;
     }
 
     @Override
@@ -51,10 +59,12 @@ public class AimShooterScheme extends AimScheme {
         if (in.pressed(slower)) {
             out.shooterVelocityChange -= VELOCITY_STEP;
         }
-        if (in.pressed(logHit)) {
-            out.logShot = ShotResult.HIT;
-        } else if (in.pressed(logMiss)) {
-            out.logShot = ShotResult.MISS;
+        if (logHit != null) {
+            if (in.pressed(logHit)) {
+                out.logShot = ShotResult.HIT;
+            } else if (in.pressed(logMiss)) {
+                out.logShot = ShotResult.MISS;
+            }
         }
     }
 }

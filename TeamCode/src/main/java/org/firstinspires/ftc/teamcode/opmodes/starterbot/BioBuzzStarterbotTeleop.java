@@ -76,8 +76,8 @@ public class BioBuzzStarterbotTeleop extends OpMode {
      * in the launch() function to only run the windmill servo when the motor is spinning fast
      * enough to make a successful throw.
      */
-    public final int LAUNCHER_TARGET_VELOCITY = 1100;
-    public final int LAUNCHER_MIN_VELOCITY = 1050;
+    public final int LAUNCHER_TARGET_VELOCITY = 1300;
+    public final int LAUNCHER_MIN_VELOCITY = 1250;
 
     /*
      * These two variables store the power we need to apply to the motors. In other cases, we may
@@ -269,7 +269,9 @@ public class BioBuzzStarterbotTeleop extends OpMode {
          */
         if (gamepad1.right_bumper) {
             launcher.setVelocity(LAUNCHER_TARGET_VELOCITY);
-        } else {
+        } else if (gamepad1.left_bumper) {
+            launcher.setVelocity(-LAUNCHER_TARGET_VELOCITY);
+        }else {
             launcher.setVelocity(0);
         }
 

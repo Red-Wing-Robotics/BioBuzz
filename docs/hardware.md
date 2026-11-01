@@ -9,8 +9,9 @@ OpModes). Config names here must match
 change all three. The goBILDA StarterBot is a separate robot: its names are in
 `opmodes/starterbot/StarterBotHardware.java`.
 
-Actuator budget (R503): **8 motors / 8 servos** max. In use: 7 motors, 3 servos (+ a PWM light on
-a servo port — confirm with the LRI whether it counts as a servo).
+Actuator budget (R503): **8 motors / 8 servos** max. In use: 7 motors, 7 servos (+ a PWM light on
+a servo port — confirm with the LRI whether it counts as a servo). With the light that is **8: no
+servo ports left**.
 
 ## Still to confirm on the robot
 
@@ -27,6 +28,11 @@ No test can catch these. Tick each one here, and fix the table row or code it na
 - [ ] **Ashurbanipal pod offsets and tuning**: measure the pod offsets into `pedro/Ashurbanipal.java`,
       run the Pinpoint and Foresight tuners on it, and set `TUNED = true`. Until then its paths
       use Belteshazzar's values.
+- [ ] **Feeder servos** `topFeeder`, `upMidFeeder`, `downMidFeeder`, `bottomFeeder` (continuous
+      rotation, used by the `FeederIntakeTest` OpModes): pick their hubs and ports, add them to the RC
+      config and the hub tables below, and check each spins toward the shooter (directions in
+      `subsystems/Feeders`, all FORWARD as a guess). Are they replacing `leftFeeder` / `rightFeeder`?
+- [ ] **Intake direction**: positive power must pull elements in (`subsystems/Intake`, FORWARD guessed).
 - [ ] **Robot footprint**: `auto/RobotSize.java` holds the 18 × 18 maximum, and the TeleOp
       assists' clearance from the HIVE depends on it (docs/decisions.md, 2026-10-11).
 
@@ -102,8 +108,9 @@ backup if those files are ever lost.
 | Drivetrain | 4 drive motors | Pinpoint | |
 | Shooter | `topShooter`, `bottomShooter` (flywheels, velocity control) | motor encoders | `subsystems/Shooter` |
 | Feeders | `leftFeeder`, `rightFeeder` (servos) | | |
+| Feeder stack | `topFeeder`, `upMidFeeder`, `downMidFeeder`, `bottomFeeder` (continuous rotation servos, ports TODO) | | `subsystems/Feeders`; `FeederIntakeTest` only |
 | Diverter | `diverter` (servo) | | |
-| Intake | `intake` (motor) | | G407: never CONTROL more than 4 balls — needs a count/stop |
+| Intake | `intake` (motor) | | `subsystems/Intake` (`FeederIntakeTest` only so far). G407: never CONTROL more than 4 balls — needs a count/stop |
 | Light | `light` | | driver / alliance signalling |
 | Vision | Limelight 3A (`limelight`) | | AprilTags on CELL undersides — see docs/field.md |
 

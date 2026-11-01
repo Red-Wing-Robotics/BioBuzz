@@ -34,6 +34,11 @@ public final class DriverCommands {
     public double shooterVelocityChange;
     /** Feed elements into the flywheels while true. The shooter decides whether it is ready. */
     public boolean fire;
+    /** Each feeder servo should be spinning (schemes with feeder toggles; false in the rest). */
+    public boolean topFeeder;
+    public boolean upMidFeeder;
+    public boolean downMidFeeder;
+    public boolean bottomFeeder;
     /** Write a row to the shot log this loop, marked with this result; null for none. */
     public ShotResult logShot;
 
@@ -69,6 +74,10 @@ public final class DriverCommands {
         shooterOn = false;
         shooterVelocityChange = 0;
         fire = false;
+        topFeeder = false;
+        upMidFeeder = false;
+        downMidFeeder = false;
+        bottomFeeder = false;
         logShot = null;
         pressedAssists.clear();
         heldAssists.clear();
