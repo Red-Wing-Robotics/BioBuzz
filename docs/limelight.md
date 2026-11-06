@@ -29,22 +29,34 @@ Pipeline 1 is for the red alliance and 2 for blue, so an OpMode picks the pipeli
 ## Mounting
 
 The camera's pose on the robot (the "robot space" camera pose in the Limelight web UI) is what
-turns a tag sighting into a robot pose. The goal tags face down from the CELL undersides, so the
-camera points up at them.
+turns a sighting into a position on the field. Offsets are from the robot's tracking centre (the
+point the Pinpoint pod offsets use); forward is the launcher side, left is positive.
 
 ### Belteshazzar
 
+Measured 2026-10-15. Runtime values: `subsystems/VisionTuning` (on `master`).
+
 | | Value |
 |---|---|
-| Forward / right / up of robot centre (in) | |
-| Pitch / yaw / roll (°) | |
+| Forward | 6 3⁄4 in (6.75) |
+| Left | 6 1⁄8 in (6.125) |
+| Lens height above the tiles | 7 3⁄4 in (7.75) |
+| Pitch | 33.3° below horizontal |
+| Yaw / roll | 0° / 0° |
+| Nearest visible floor | 4 in |
+| Field of view (spec) | 54.5° × 42° |
+
+Tilted down at the floor balls, this mount can't see the AprilTags under the CELLs.
 
 ### Ashurbanipal
 
 | | Value |
 |---|---|
-| Forward / right / up of robot centre (in) | |
-| Pitch / yaw / roll (°) | |
+| Forward | |
+| Left | |
+| Lens height above the tiles | |
+| Pitch | |
+| Yaw / roll | |
 
 ## SDK API (FTC SDK 12.0)
 
