@@ -35,6 +35,12 @@ public class RobotHardware {
     public static final String LEFT_FEEDER       = "leftFeeder";      // servo 0
     public static final String PINPOINT          = "pinpoint";        // I2C bus 2 (goBILDA odometry computer)
 
+    // ---- Hub and port not assigned yet (TODO docs/hardware.md) ------------------------
+    public static final String TOP_FEEDER        = "topFeeder";       // continuous rotation servo
+    public static final String UP_MID_FEEDER     = "upMidFeeder";     // continuous rotation servo
+    public static final String DOWN_MID_FEEDER   = "downMidFeeder";   // continuous rotation servo
+    public static final String BOTTOM_FEEDER     = "bottomFeeder";    // continuous rotation servo
+
     private final HardwareMap hardwareMap;
     private final List<LynxModule> hubs;
 

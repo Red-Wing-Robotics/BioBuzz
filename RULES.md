@@ -48,7 +48,7 @@ The **visual field timer** is authoritative; audio cues are a courtesy.
 - Each HIVE has **2 CELLS** (one on each end) and is **bi-stable** — one CELL faces up, the other down. LAUNCHING enough elements into the upward CELL tips it over, dumping its contents onto the floor and raising the other CELL.
 - CELL opening: ~20 in wide × 14 in tall × 12 in deep.
 - A **HIVE TIP** counts when the HIVE moves from one stable state to the other and the damper contacts the frame.
-- Each CELL's underside has an **AprilTag cluster** (4 tags, 36h11 family, 3.25 in). Blue audience-side CELL = IDs 38–41; red audience-side ends at ID 7; red far-side starts at ID 0. (Some IDs did not survive PDF extraction — confirm in the manual / field resources.)
+- Each CELL's underside has an **AprilTag cluster** (4 tags, 36h11 family, 3.25 in). Red CELLs use IDs 30–37, blue 38–45 (blue audience-side CELL = 38–41).
 
 ### FLOWERS (4, mounted on the perimeter wall)
 - Top opening ~4 in diameter, ~21.5 in above tiles, with a 1.25 in backstop.

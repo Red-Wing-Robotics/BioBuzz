@@ -35,12 +35,13 @@ public class ControlSchemesTest {
 
     /** The layouts drivers use in TeleOp; they share the shooting-spot buttons. */
     private static List<ControlScheme> matchSchemes() {
-        return Arrays.asList(new TwoDriverScheme(), new SoloScheme(), new AimScheme(), new AimShooterScheme());
+        return Arrays.asList(new TwoDriverScheme(), new SoloScheme(), new AimScheme(), new AimShooterScheme(),
+                new AimFeederScheme());
     }
 
     private static List<ControlScheme> allSchemes() {
         return Arrays.asList(new TwoDriverScheme(), new SoloScheme(), new AimScheme(), new AimShooterScheme(),
-                new VisionBenchScheme());
+                new AimFeederScheme(), new VisionBenchScheme());
     }
 
     private static DriverCommands map(ControlScheme scheme, DriverInput in) {
@@ -249,9 +250,11 @@ public class ControlSchemesTest {
 
     @Test
     public void onlyAimShooterLogsShots() {
-        for (ControlScheme scheme : Arrays.asList(new TwoDriverScheme(), new AimScheme())) {
+        for (ControlScheme scheme : Arrays.asList(new TwoDriverScheme(), new AimScheme(), new AimFeederScheme())) {
             DriverInput in = new DriverInput();
             assertNull(scheme.name(), loop(scheme, in, in.gamepad2, Button.A, true).logShot);
+            loop(scheme, in, in.gamepad2, Button.A, false);
+            assertNull(scheme.name(), loop(scheme, in, in.gamepad2, Button.X, true).logShot);
         }
     }
 
@@ -268,5 +271,59 @@ public class ControlSchemesTest {
                 assertTrue(binding.input(), shooter.contains(binding.input() + " = " + binding.action));
             }
         }
+    }
+
+    @Test
+    public void aimFeederFaceButtonsEachToggleOneFeeder() {
+        ControlScheme scheme = new AimFeederScheme();
+        DriverInput in = new DriverInput();
+        DriverCommands out = map(scheme, in);
+        assertFalse("all off at INIT", out.topFeeder || out.upMidFeeder || out.downMidFeeder || out.bottomFeeder);
+
+        out = loop(scheme, in, in.gamepad2, Button.Y, true);
+        assertTrue("Y: top", out.topFeeder);
+        assertFalse(out.upMidFeeder || out.downMidFeeder || out.bottomFeeder);
+        assertTrue("held: stays on", loop(scheme, in, in.gamepad2, Button.Y, true).topFeeder);
+        assertTrue("released: stays on", loop(scheme, in, in.gamepad2, Button.Y, false).topFeeder);
+
+        out = loop(scheme, in, in.gamepad2, Button.X, true);
+        assertTrue("X: upper middle", out.upMidFeeder);
+        assertTrue("others keep their state", out.topFeeder);
+        loop(scheme, in, in.gamepad2, Button.X, false);
+        assertTrue("B: lower middle", loop(scheme, in, in.gamepad2, Button.B, true).downMidFeeder);
+        loop(scheme, in, in.gamepad2, Button.B, false);
+        assertTrue("A: bottom", loop(scheme, in, in.gamepad2, Button.A, true).bottomFeeder);
+        loop(scheme, in, in.gamepad2, Button.A, false);
+
+        out = loop(scheme, in, in.gamepad2, Button.Y, true);
+        assertFalse("Y again: top off", out.topFeeder);
+        assertTrue(out.upMidFeeder && out.downMidFeeder && out.bottomFeeder);
+        assertFalse("Y is not the shooter here", out.shooterOn);
+    }
+
+    @Test
+    public void aimFeederLeftBumperTogglesTheIntakeAndLeftTriggerStillUnjams() {
+        ControlScheme scheme = new AimFeederScheme();
+        DriverInput in = new DriverInput();
+        assertEquals("off at INIT", 0.0, map(scheme, in).intake, EPS);
+        assertEquals("press: full in", 1.0, loop(scheme, in, in.gamepad2, Button.LEFT_BUMPER, true).intake, EPS);
+        assertEquals("released: stays on", 1.0, loop(scheme, in, in.gamepad2, Button.LEFT_BUMPER, false).intake, EPS);
+        in.gamepad2.set(Axis.LEFT_TRIGGER, 1.0);
+        assertEquals("left trigger unjams", -1.0, map(scheme, in).intake, EPS);
+        in.gamepad2.set(Axis.LEFT_TRIGGER, 0);
+        assertEquals(1.0, map(scheme, in).intake, EPS);
+        assertEquals("press again: off", 0.0, loop(scheme, in, in.gamepad2, Button.LEFT_BUMPER, true).intake, EPS);
+        loop(scheme, in, in.gamepad2, Button.LEFT_BUMPER, false);
+        in.gamepad2.set(Axis.RIGHT_TRIGGER, 0.5);
+        assertEquals("off: triggers as usual", 0.5, map(scheme, in).intake, EPS);
+    }
+
+    @Test
+    public void aimFeederKeepsTheShooterSpeedControls() {
+        ControlScheme scheme = new AimFeederScheme();
+        DriverInput in = new DriverInput();
+        assertTrue(loop(scheme, in, in.gamepad2, Button.RIGHT_BUMPER, true).shooterOn);
+        assertEquals(AimShooterScheme.VELOCITY_STEP,
+                loop(scheme, in, in.gamepad2, Button.DPAD_UP, true).shooterVelocityChange, EPS);
     }
 }

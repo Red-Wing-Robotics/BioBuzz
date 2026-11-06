@@ -15,7 +15,8 @@ gamepads → DriverInput → ControlScheme.map → DriverCommands ─┬→ Tele
 | `schemes/TwoDriverScheme` | match layout: gamepad1 drives, gamepad2 runs mechanisms |
 | `schemes/SoloScheme` | everything on gamepad1, for practice |
 | `schemes/AimScheme` | `TwoDriverScheme` plus heading aim toggles on the driver's X / B |
-| `schemes/AimShooterScheme` | `AimScheme` with the operator's shooter controls replaced: gp2 right bumper toggles both flywheels, d-pad up / down ±100 ticks/s, A / X log a shot as hit / miss (fire is unbound) |
+| `schemes/AimFeederScheme` | `AimShooterScheme` without the shot log: gp2 Y / X / B / A toggle the top / upper middle / lower middle / bottom feeder, left bumper toggles the intake (left trigger still unjams) |
+| `schemes/AimShooterScheme` | `AimScheme` with the operator's shooter controls replaced: gp2 right bumper toggles both flywheels, d-pad up / down ±25 ticks/s, A / X log a shot as hit / miss (fire is unbound) |
 | `schemes/VisionBenchScheme` | the vision bench (`opmodes/test/BallVisionBench`): drive, A hold to a ball, B forget balls |
 | `ControlScheme` | base: declare bindings with `button(...)` / `axis(...)`, implement `map` |
 | `DriverCommands` | what the drivers want this loop: drive powers, intake, shooter, fire, assist requests |

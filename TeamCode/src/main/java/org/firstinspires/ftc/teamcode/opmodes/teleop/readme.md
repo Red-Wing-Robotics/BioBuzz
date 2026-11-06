@@ -9,6 +9,7 @@ TeleOp. It sets the start waypoint, defines the assists in `registerAssists`, tu
 | `Red: TeleOp` / `Blue: TeleOp` | comp | `TwoDriverScheme` | preselected by the autos of that alliance |
 | `Red: Aim TeleOp` / `Blue: Aim TeleOp` | comp | `AimScheme` | the match layout plus heading aim (below); not preselected by any auto |
 | `Red: Aim Shooter TeleOp` / `Blue: Aim Shooter TeleOp` | comp | `AimShooterScheme` | Aim TeleOp plus flywheel speed control and the shot log (below); not preselected |
+| `Red: FeederIntakeTest` / `Blue: FeederIntakeTest` | test | `AimFeederScheme` | Aim Shooter TeleOp without the shot log, plus intake and feeder toggles (below); `FeederIntakeTest`, not preselected |
 | `Solo: TeleOp` | test | `SoloScheme` | one person, practice; B = drive back to start |
 
 Assists (defined in `CompTeleOp.registerAssists`, so every variant has them):
@@ -28,7 +29,7 @@ nothing while it is on. It pauses while a driving assist runs and resumes after.
 under velocity control. They start at `Shooter.DEFAULT_VELOCITY` (1500 ticks/s) and keep the
 last target while off, capped at `Shooter.MAX_VELOCITY`. In the Aim Shooter TeleOps, gp2 right
 bumper toggles them and d-pad up / down changes the speed by `AimShooterScheme.VELOCITY_STEP`
-(100 ticks/s); the other schemes toggle on gp2 Y at the default speed. The DS "shooter velocity"
+(25 ticks/s); the other schemes toggle on gp2 Y at the default speed. The DS "shooter velocity"
 line shows the target and both measured speeds. Motor directions are unverified (TODO in
 `Shooter`).
 
@@ -43,6 +44,13 @@ off with `adb pull /sdcard/FIRST/data/shots.csv`, then plot distance vs target v
 hits. Distances are only as good as the odometry pose and the `HiveCells` placeholders: measure
 those first. If the columns ever change, rename the old file so the header stays right. Writing a
 file on the hub is not Wi-Fi logging (R704).
+
+**Feeders and intake** (`FeederIntakeTest` OpModes only): gp2 **Y / X / B / A**
+toggle the `topFeeder` / `upMidFeeder` / `downMidFeeder` / `bottomFeeder` continuous rotation
+servos (`subsystems/Feeders`, `Feeders.FEED_POWER` when on); **left bumper** toggles the intake on
+at full power in (`subsystems/Intake`), and holding the left trigger still runs it out to unjam.
+Nothing counts elements yet, so G407 is on the operator. These OpModes need the four feeder
+servos in the RC config (ports TODO, docs/hardware.md); the other TeleOps don't.
 
 Every driving assist takes the **quickest way that keeps the whole robot clear of the HIVE's
 floor rails**, round the HIVE or through the lane under it: `Steps.driveTo` with
