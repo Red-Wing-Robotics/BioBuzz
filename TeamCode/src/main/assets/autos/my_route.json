@@ -1,0 +1,14 @@
+{
+  "name": "Test Route",
+  "waypoints": {
+    "START": [60, 132, -90],
+    "LEAVE": [60, 108, -90],
+    "PARK":  [20, 108, -90]
+  },
+  "start": "START",
+  "routine": [
+    { "follow": { "line": ["START", "LEAVE"] }, "name": "leave wall" },
+    { "wait": 0.5 },
+    { "follow": { "line": ["LEAVE", "PARK"] }, "name": "park", "timeout": 5 }
+  ]
+}

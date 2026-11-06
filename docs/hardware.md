@@ -112,7 +112,7 @@ backup if those files are ever lost.
 | Diverter | `diverter` (servo) | | |
 | Intake | `intake` (motor) | | `subsystems/Intake` (`FeederIntakeTest` only so far). G407: never CONTROL more than 4 balls — needs a count/stop |
 | Light | `light` | | driver / alliance signalling |
-| Vision | Limelight 3A (`limelight`) | | AprilTags on CELL undersides — see docs/field.md |
+| Vision | Limelight 3A (`limelight`) | | AprilTags on CELL undersides and color blobs — pipelines in [limelight.md](limelight.md) |
 
 ## Devices
 

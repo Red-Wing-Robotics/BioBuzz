@@ -116,4 +116,5 @@ work done. Code is not done until it compiles and tests pass. There is no simula
 - [docs/hardware.md](docs/hardware.md) — port map and config names. If it disagrees with `RobotHardware.java`, fix both.
 - [docs/coordinates.md](docs/coordinates.md) — the field coordinate system: the one definition.
 - [docs/field.md](docs/field.md) — AprilTag IDs, start poses, field positions (in that frame).
+- [docs/limelight.md](docs/limelight.md) — Limelight 3A pipelines, settings, mounting, and the SDK calls we use.
 - [docs/decisions.md](docs/decisions.md) — dated design decisions. Check before proposing a change of direction; add an entry when one is made.

@@ -24,12 +24,13 @@ touching a FLOWER, within 18 in cube, contacting exactly 4 pre-loaded POLLEN.
 
 ## AprilTags (36h11, 3.25 in, on the underside of each CELL, facing down)
 
-| CELL | IDs |
-|---|---|
-| Red, far side (opposite audience) | 0, ?, ?, ? — TODO confirm from manual figure 9-17 |
-| Red, audience side | ?, ?, ?, 7 — TODO confirm |
-| Blue, audience side | 38, 39, 40, 41 |
-| Blue, far side | TODO confirm |
+| Alliance | IDs | Limelight pipeline |
+|---|---|---|
+| Red | 30–37 | 1 RedHives |
+| Blue | 38–45 | 2 BlueHives |
+
+Four tags per CELL. Blue audience side is 38–41; which four are on each other CELL is not recorded.
+See [limelight.md](limelight.md#pipelines).
 
 ## Key locations
 
