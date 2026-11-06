@@ -26,12 +26,14 @@ public class DriveToBallTest {
     private final AutoContext ctx = new AutoContext(null, null, () -> clock[0]);
     private Pose robot = new Pose(20, 20, 0);
     private final List<BallTracker.Ball> balls = new ArrayList<>();
+    private final List<BallTracker.Ball> edge = new ArrayList<>();
     private final List<Pose> stops = new ArrayList<>();
     private final List<String> log = new ArrayList<>();
     private boolean arrived;
 
     private final Balls source = new Balls() {
         @Override public List<BallTracker.Ball> confirmed() { return balls; }
+        @Override public List<BallTracker.Ball> atEdge() { return edge; }
 
         @Override
         public BallTracker.Ball find(int id) {
@@ -53,8 +55,14 @@ public class DriveToBallTest {
         };
     }
 
+    /** A drive that chooses on its first update: most tests aren't about the settle time. */
     private DriveToBall started() {
         DriveToBall.Settings s = new DriveToBall.Settings();
+        s.settleSeconds = 0;
+        return started(s);
+    }
+
+    private DriveToBall started(DriveToBall.Settings s) {
         DriveToBall d = new DriveToBall(source, () -> robot, this::drive, Alliance.RED, s);
         d.start(ctx);
         return d;
@@ -146,6 +154,78 @@ public class DriveToBallTest {
         assertEquals(Arrays.asList("start 1", "interrupted 1"), log);
     }
 
+    private void addPollen(int id, double x, double y) {
+        balls.add(BallApproachTest.ball(id, BallKind.POLLEN, x, y));
+    }
+
+    @Test
+    public void itLooksForTheSettleTimeBeforeChoosing() {
+        // 2026-10-29 on the field: it chose the first ball confirmed, a lone one, before the
+        // three beside it had been seen in three frames.
+        DriveToBall d = started(new DriveToBall.Settings());
+        addPollen(1, 42, 30);
+        assertFalse(tick(d, 0.25));
+        assertTrue("still looking", stops.isEmpty());
+        addPollen(2, 40, 16);
+        addPollen(3, 42, 16);
+        addPollen(4, 41, 18);
+        tick(d, 0.3);
+        assertEquals(1, stops.size());
+        assertTrue(d.name(), d.name().contains("3 together"));
+    }
+
+    @Test
+    public void aBiggerGroupConfirmedOnTheWayIsTakenInstead() {
+        ballAt(1, 42, 30);
+        DriveToBall d = started();
+        tick(d, 0.02);
+        addPollen(2, 40, 16);
+        addPollen(3, 42, 16);
+        tick(d, 0.1);
+        assertEquals("not before the re-plan interval", 1, stops.size());
+        tick(d, 0.2);
+        assertEquals(2, stops.size());
+        assertTrue(d.name(), d.name().contains("switched: 2 together"));
+        assertTrue(d.candidates(), d.candidates().startsWith("switched: "));
+        assertEquals(Arrays.asList("start 1", "end 1", "start 2"), log);
+
+        addPollen(4, 20, 40); // a lone ball: no bigger than the target's group
+        tick(d, 0.3);
+        assertEquals(2, stops.size());
+    }
+
+    @Test
+    public void aNectarConfirmedInTheWayAfterThePickStopsTheDrive() {
+        robot = new Pose(20, 20, Math.atan2(22, 28)); // as in BallApproachTest's NECTAR on the way
+        ballAt(1, 48, 42);
+        DriveToBall.Settings s = new DriveToBall.Settings();
+        s.settleSeconds = 0;
+        s.colors = PickupRules.Colors.POLLEN;
+        DriveToBall d = started(s);
+        tick(d, 0.02);
+        assertEquals(1, stops.size());
+        balls.add(BallApproachTest.ball(2, BallKind.RED_NECTAR, 29.4, 27.4));
+        assertTrue(tick(d, 0.02));
+        assertEquals(DriveToBall.Outcome.ABANDONED, d.outcome());
+        assertTrue(d.why(), d.why().contains("drive over the RED_NECTAR at (29, 27)"));
+        assertEquals(Arrays.asList("start 1", "interrupted 1"), log);
+    }
+
+    @Test
+    public void aNectarSeenOnlyAtTheImageEdgeIsStillKeptClearOf() {
+        robot = new Pose(20, 20, Math.atan2(22, 28)); // as in BallApproachTest's NECTAR on the way
+        ballAt(1, 48, 42);
+        edge.add(BallApproachTest.ball(2, BallKind.RED_NECTAR, 29.4, 27.4));
+        DriveToBall.Settings s = new DriveToBall.Settings();
+        s.settleSeconds = 0;
+        s.colors = PickupRules.Colors.POLLEN;
+        DriveToBall d = started(s);
+        assertTrue(tick(d, 1.1));
+        assertEquals(DriveToBall.Outcome.NO_TARGET, d.outcome());
+        assertTrue(d.why(), d.why().contains("drive over the RED_NECTAR at (29, 27)"));
+        assertTrue(stops.isEmpty());
+    }
+
     @Test
     public void interruptingItStopsTheDrive() {
         ballAt(1, 42, 26);
@@ -171,6 +251,7 @@ public class DriveToBallTest {
         assertEquals(1, s.lookSeconds, 0);
         assertTrue("groups preferred by default", s.preferGroups);
         assertFalse(ToBallArgs.parse(json("{\"prefer\": \"nearest\"}"), defaults).preferGroups);
+        assertEquals(0.3, ToBallArgs.parse(json("{\"speed\": 0.3}"), defaults).speed, 0);
         assertEquals("defaults untouched", PickupRules.Colors.OURS, defaults.colors);
         assertEquals(defaults.commit, ToBallArgs.parse(new JsonObject(), defaults).commit, 0);
     }
@@ -183,6 +264,8 @@ public class DriveToBallTest {
         assertRejected("{\"within\": 0}", "more than 0");
         assertRejected("{\"look\": -1}", "0 or more");
         assertRejected("{\"prefer\": \"biggest\"}", "args.prefer");
+        assertRejected("{\"speed\": 1.5}", "up to 1");
+        assertRejected("{\"speed\": 0}", "more than 0");
     }
 
     private static void assertRejected(String args, String messagePart) {

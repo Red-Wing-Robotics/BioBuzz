@@ -12,6 +12,7 @@ import org.firstinspires.ftc.teamcode.auto.Alliance;
 import org.junit.Test;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 public class BallApproachTest {
@@ -86,7 +87,7 @@ public class BallApproachTest {
         DriveToBall.Settings s = new DriveToBall.Settings();
         s.colors = PickupRules.Colors.OURS;
         List<BallTracker.Ball> balls = Arrays.asList(
-                ball(1, BallKind.BLUE_NECTAR, 28, 22),   // nearest, but the opponent's (G408)
+                ball(1, BallKind.BLUE_NECTAR, 26, 4),    // nearest, but the opponent's (G408); off the way
                 ball(2, BallKind.POLLEN, 50, 10),
                 ball(3, BallKind.POLLEN, 42, 26),        // this one
                 ball(4, BallKind.POLLEN, 90, 20));       // out of range, and over the centre line
@@ -180,6 +181,63 @@ public class BallApproachTest {
         assertTrue(c.candidates, c.candidates.contains("POLLEN (38, 26) group 4"));
     }
 
+    private static DriveToBall.Settings pollenOnly() {
+        DriveToBall.Settings s = new DriveToBall.Settings();
+        s.colors = PickupRules.Colors.POLLEN;
+        return s;
+    }
+
+    @Test
+    public void aPollenSeekPassesOverAGroupWithANectarInIt() {
+        // 2026-10-29 on the field: three POLLEN with a red NECTAR among them, and a lone POLLEN.
+        Pose robot = new Pose(20, 20, 0);
+        List<BallTracker.Ball> balls = Arrays.asList(
+                ball(1, BallKind.POLLEN, 40, 26), ball(2, BallKind.POLLEN, 42.8, 26), ball(3, BallKind.POLLEN, 41.4, 28.4),
+                ball(4, BallKind.RED_NECTAR, 44, 28), ball(5, BallKind.POLLEN, 40, 12));
+        BallApproach.Choice c = BallApproach.choose(balls, robot, Alliance.RED, pollenOnly());
+        assertEquals(5, c.ball.id);
+        assertTrue(c.candidates, c.candidates.contains("✗ POLLEN (40, 26): nowhere to stop for it: the robot would touch the RED_NECTAR at (44, 28)"));
+        assertTrue(c.candidates, c.candidates.contains("✗ RED_NECTAR (44, 28): not one of the colours asked for"));
+
+        DriveToBall.Settings ours = new DriveToBall.Settings(); // our NECTAR wanted too: nothing to avoid
+        assertEquals(4, BallApproach.choose(balls, robot, Alliance.RED, ours).group.count);
+    }
+
+    @Test
+    public void aNectarOnTheWayRulesTheBallOutButOneBehindDoesnt() {
+        // Facing the POLLEN, the NECTAR 12 in along the way: clear of the robot now and at the stop.
+        Pose robot = new Pose(20, 20, Math.atan2(22, 28));
+        BallTracker.Ball pollen = ball(1, BallKind.POLLEN, 48, 42);
+        BallTracker.Ball onTheWay = ball(2, BallKind.RED_NECTAR, 29.4, 27.4);
+        assertNull(BallApproach.choose(Arrays.asList(pollen, onTheWay), robot, Alliance.RED, pollenOnly()));
+        String why = BallApproach.whyNotChosen(pollen, robot, Alliance.RED, pollenOnly(), Collections.singletonList(onTheWay));
+        assertTrue(why, why.contains("drive over the RED_NECTAR at (29, 27)"));
+
+        BallTracker.Ball behind = ball(2, BallKind.RED_NECTAR, 8, 21);
+        assertEquals(1, BallApproach.choose(Arrays.asList(pollen, behind), robot, Alliance.RED, pollenOnly()).ball.id);
+    }
+
+    @Test
+    public void opponentNectarIsAvoidedWhateverTheColours() {
+        DriveToBall.Settings ours = new DriveToBall.Settings();
+        List<BallTracker.Ball> avoid = BallApproach.avoided(Arrays.asList(
+                ball(1, BallKind.POLLEN, 40, 26), ball(2, BallKind.RED_NECTAR, 44, 28), ball(3, BallKind.BLUE_NECTAR, 30, 30)),
+                Alliance.RED, ours);
+        assertEquals(1, avoid.size());
+        assertEquals(BallKind.BLUE_NECTAR, avoid.get(0).kind);
+    }
+
+    @Test
+    public void theBallsPassedOverAreListedWithWhy() {
+        DriveToBall.Settings s = new DriveToBall.Settings();
+        s.colors = PickupRules.Colors.POLLEN;
+        BallTracker.Ball pollen = ball(1, BallKind.POLLEN, 38, 26);
+        BallTracker.Ball nectar = ball(2, BallKind.RED_NECTAR, 44, 6);
+        BallApproach.Choice c = BallApproach.choose(Arrays.asList(pollen, nectar), ROBOT, Alliance.RED, s);
+        assertTrue(c.candidates, c.candidates.startsWith("→ POLLEN (38, 26) group 1"));
+        assertTrue(c.candidates, c.candidates.endsWith(" | ✗ RED_NECTAR (44, 6): not one of the colours asked for (POLLEN)"));
+    }
+
     @Test
     public void aLoneBallMoreThanSixInchesAwayIsItsOwnGroup() {
         DriveToBall.Settings s = new DriveToBall.Settings();
@@ -188,6 +246,26 @@ public class BallApproachTest {
         blob.sized(3, 6, true);
         assertEquals(1, BallApproach.group(lone, Arrays.asList(lone, blob), Alliance.RED, s).count);
         assertEquals(3, BallApproach.group(blob, Arrays.asList(lone, blob), Alliance.RED, s).count);
+    }
+
+    @Test
+    public void withTheOwnHalfRuleOffAnAutoSeekMayCrossTheCentreLine() {
+        // 2026-10-29 on the field: from PARK (85, 108) the ball at (66, 107) had nowhere to stop
+        // that was on our half and clear of the HIVE.
+        DriveToBall.Settings s = new DriveToBall.Settings();
+        s.margin = 3;
+        s.hiveMargin = 3;
+        Pose park = new Pose(85, 108, 0);
+        BallTracker.Ball pocket = ball(1, BallKind.POLLEN, 66, 107);
+        BallTracker.Ball overThere = ball(2, BallKind.POLLEN, 100, 120);
+        assertTrue(BallApproach.whyNotChosen(pocket, park, Alliance.RED, s).startsWith("nowhere to stop"));
+        assertTrue(BallApproach.whyNotChosen(overThere, park, Alliance.RED, s).contains("G402"));
+
+        s.ownHalfOnly = false;
+        assertNull(BallApproach.whyNotChosen(pocket, park, Alliance.RED, s));
+        assertNull(BallApproach.whyNotChosen(overThere, park, Alliance.RED, s));
+        Pose stop = BallApproach.stopFor(park, 66, 107, Alliance.RED, s);
+        assertNull("still clear of the HIVE", BallApproach.whyNotStopAt(stop, Alliance.RED, true, false, 3));
     }
 
     @Test

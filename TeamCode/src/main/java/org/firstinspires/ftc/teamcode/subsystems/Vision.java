@@ -11,6 +11,7 @@ import org.firstinspires.ftc.robotcore.external.Telemetry;
 import org.firstinspires.ftc.teamcode.RobotHardware;
 import org.firstinspires.ftc.teamcode.auto.Alliance;
 import org.firstinspires.ftc.teamcode.auto.AutoClearance;
+import org.firstinspires.ftc.teamcode.auto.Field;
 import org.firstinspires.ftc.teamcode.auto.KeepOut;
 import org.firstinspires.ftc.teamcode.auto.Step;
 import org.firstinspires.ftc.teamcode.auto.Steps;
@@ -25,7 +26,9 @@ import org.firstinspires.ftc.teamcode.vision.PoseHistory;
 import org.firstinspires.ftc.teamcode.vision.ToBallArgs;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.function.Supplier;
 
 /**
@@ -62,6 +65,8 @@ public final class Vision implements Subsystem, Balls {
     private volatile String switchProblem;
 
     private Frame latest;
+    /** Detections in the latest frame whose class isn't one of ours, e.g. "\"nectar_red\" (class 1) confidence 0.52"; empty if none. */
+    private String unknownClasses = "";
     private double latencyMs;
     private double lastFrameId = Double.NaN;
     private double fpsWindowStart = Double.NaN;
@@ -128,19 +133,24 @@ public final class Vision implements Subsystem, Balls {
         double capture = now - latencyMs;
 
         List<Detection> detections = new ArrayList<>();
+        List<String> unknown = new ArrayList<>();
         List<LLResultTypes.DetectorResult> found = r.isValid() ? r.getDetectorResults() : null;
         if (found != null) {
             for (LLResultTypes.DetectorResult d : found) {
                 BallKind kind = BallKind.of(d.getClassName(), d.getClassId());
                 if (kind == null) {
+                    unknown.add(String.format(Locale.US, "\"%s\" (class %d) confidence %.2f", d.getClassName(), d.getClassId(), d.getConfidence()));
                     continue;
                 }
                 // The SDK documents 0–100, Hive-Vision found 0–1: accept either.
                 double confidence = d.getConfidence() > 1 ? d.getConfidence() / 100 : d.getConfidence();
+                // The SDK documents ta as 0–100 % of the image, but the 3A's detector reports a fraction
+                // (2026-10-29: boxes of 0.006–0.1 for balls 10–25 in away, where one ball is 1–5 %).
                 detections.add(new Detection(kind, d.getTargetXDegreesNoCrosshair(), d.getTargetYDegreesNoCrosshair(),
-                        confidence, d.getTargetArea()));
+                        confidence, d.getTargetArea() * 100));
             }
         }
+        unknownClasses = String.join(", ", unknown);
         latest = new Frame(lastFrameId, capture, detections);
         VisionTuning.apply(trackerSettings);
         tracker.update(latest, history.at(capture), history.turnRate(capture), VisionTuning.mount(), now);
@@ -148,6 +158,9 @@ public final class Vision implements Subsystem, Balls {
 
     @Override
     public void status(Telemetry telemetry) {
+        if (job == Job.BALLS && !ownHalfOnly()) {
+            telemetry.addData("vision WARNING", "AUTO may seek on the other half (G402): testing only, VisionTuning.autoOwnHalfOnly");
+        }
         if (limelight == null) {
             telemetry.addData("vision", "no camera (no \"%s\" in the robot configuration)", RobotHardware.LIMELIGHT);
             return;
@@ -171,7 +184,8 @@ public final class Vision implements Subsystem, Balls {
         }
         telemetry.addData("vision", "%.0f fps · %d ball(s), %d sure · %.0f ms behind",
                 fps, tracker.balls().size(), tracker.confirmed().size(), latencyMs);
-        telemetry.addData("vision frame", "%s", tracker.lastFrameSummary());
+        telemetry.addData("vision frame", "%s%s", tracker.lastFrameSummary(),
+                unknownClasses.isEmpty() ? "" : "; not our classes: " + unknownClasses);
         if (lastDrive != null && lastDrive.candidates() != null) {
             telemetry.addData("vision pick", "%s", lastDrive.candidates());
         }
@@ -195,6 +209,11 @@ public final class Vision implements Subsystem, Balls {
     }
 
     @Override
+    public List<BallTracker.Ball> atEdge() {
+        return tracker.confirmedAtEdge();
+    }
+
+    @Override
     public BallTracker.Ball find(int id) {
         return tracker.find(id);
     }
@@ -210,21 +229,42 @@ public final class Vision implements Subsystem, Balls {
     /** A vision drive with these settings, e.g. for a TeleOp assist (see {@link #teleOpSettings}). */
     public Step driveToBall(DriveToBall.Settings settings) {
         DriveToBall.Settings s = settings.copy();
-        DriveToBall drive = new DriveToBall(this, pose, stop -> Steps.driveTo("ball", stop, s.obstacles, s.margin), alliance, s);
+        DriveToBall drive = new DriveToBall(this, pose, stop -> Steps.atSpeed(s.speed, Steps.driveTo("ball", stop, s.obstacles, s.margin)), alliance, s);
         // A route builds its seeks at INIT, so this shows the latest one built (or run) last.
         lastDrive = drive;
         lastDriveLogged = false;
         return drive;
     }
 
-    /** AUTO's settings: our half only, the HIVE outline avoided ({@link AutoClearance}). */
+    /**
+     * AUTO's settings: the HIVE outline avoided ({@link AutoClearance}), and our half only unless
+     * a dev build has {@link VisionTuning#autoOwnHalfOnly} off for testing.
+     */
     public DriveToBall.Settings autoSettings() {
         DriveToBall.Settings s = VisionTuning.approach();
         s.auto = true;
+        s.ownHalfOnly = ownHalfOnly();
         s.hiveMargin = AutoClearance.MARGIN;
-        s.obstacles = AutoClearance.obstacles(alliance);
+        s.obstacles = s.ownHalfOnly ? AutoClearance.obstacles(alliance) : Collections.singletonList(Field.HIVE);
         s.margin = AutoClearance.MARGIN;
         return s;
+    }
+
+    /** AUTO keeps to our half (G402): always in a competition build, and in a dev build unless switched off for testing. */
+    public static boolean ownHalfOnly() {
+        return VisionTuning.autoOwnHalfOnly || !DEV_BUILD;
+    }
+
+    /** RouteViewRemote is in the dev source set only, so its presence says this is a dev build. */
+    private static final boolean DEV_BUILD = classExists("org.firstinspires.ftc.teamcode.auto.RouteViewRemote");
+
+    private static boolean classExists(String name) {
+        try {
+            Class.forName(name, false, Vision.class.getClassLoader());
+            return true;
+        } catch (ClassNotFoundException e) {
+            return false;
+        }
     }
 
     /** TeleOp's settings: no own-half limit; the drive plans round {@code obstacles}, {@code margin} clear. */
@@ -248,7 +288,7 @@ public final class Vision implements Subsystem, Balls {
         for (BallTracker.Ball b : tracker.confirmed()) {
             if (colors.wants(b.kind, alliance)
                     && Math.hypot(b.x() - here.x(), b.y() - here.y()) <= VisionTuning.within
-                    && PickupRules.whyNot(b.kind, b.x(), b.y(), alliance, true, AutoClearance.MARGIN) == null) {
+                    && PickupRules.whyNot(b.kind, b.x(), b.y(), alliance, ownHalfOnly(), AutoClearance.MARGIN) == null) {
                 return true;
             }
         }
@@ -286,9 +326,18 @@ public final class Vision implements Subsystem, Balls {
         if (lastDrive != null && lastDrive.candidates() != null && !lastDrive.candidates().equals(loggedCandidates)) {
             loggedCandidates = lastDrive.candidates();
             RobotLog.ii(TAG, "vision pick: %s", loggedCandidates);
+            RobotLog.ii(TAG, "vision tracked: %s", tracker.describeTracked());
+            RobotLog.ii(TAG, "vision seen: %s%s", tracker.lastFrameDetail(),
+                    unknownClasses.isEmpty() ? "" : " | not our classes: " + unknownClasses);
         }
         if (lastDrive != null && !lastDriveLogged && lastDrive.outcome() != DriveToBall.Outcome.RUNNING) {
             RobotLog.ii(TAG, "vision drive %s: %s (frame: %s)", lastDrive.outcome(), lastDrive.name(), tracker.lastFrameSummary());
+            if (lastDrive.outcome() != DriveToBall.Outcome.ARRIVED) {
+                // No pick was logged with it: say what the camera was reporting.
+                RobotLog.ii(TAG, "vision tracked: %s", tracker.describeTracked());
+                RobotLog.ii(TAG, "vision seen: %s%s", tracker.lastFrameDetail(),
+                        unknownClasses.isEmpty() ? "" : " | not our classes: " + unknownClasses);
+            }
             lastDriveLogged = true;
         }
     }

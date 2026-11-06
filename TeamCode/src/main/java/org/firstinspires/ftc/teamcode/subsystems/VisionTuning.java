@@ -68,15 +68,35 @@ public final class VisionTuning {
     public static double standoff = 9;
     /** How long a vision drive waits for a ball to be confirmed, seconds. Three frames take 0.15–0.3 s. */
     public static double lookSeconds = 1.0;
+    /** How long a vision drive looks before choosing, seconds, so a group has time to be confirmed (2026-10-29). */
+    public static double settleSeconds = 0.5;
     public static double commit = 18;
     public static double replanMove = 2;
     public static double replanEveryMs = 250;
+    /**
+     * Path speed for vision drives, as a fraction of the robot's top speed (1 = full). 0.5 while
+     * the group choice is being debugged on the field (2026-10-29), so the turn toward a ball is
+     * easy to watch. A route can say {@code "speed": 1}. Turns on the spot stay at full power.
+     */
+    public static double driveSpeed = 0.5;
+    /**
+     * TEMPORARY (2026-10-29, testing seeks across the field): false lets AUTO vision drives go
+     * for balls on the other half, and drive there. G402 makes that a Major Foul risk in a match,
+     * so competition builds always keep to our half whatever this says, and the DS warns while it
+     * is off. Set back to true when the test is done.
+     */
+    public static boolean autoOwnHalfOnly = false;
     /** Prefer a group of balls about as near as the nearest ball. A route can say {@code "prefer": "nearest"}. */
     public static boolean preferGroups = true;
     /** Balls within this of each other, inches, count as one group: touching, or nearly (2026-10-22; was 8). */
     public static double clusterRadius = 6;
     /** A bigger group wins if it is at most this much slower to reach than the nearest ball, seconds (0.5 s ≈ 15–20 in). */
     public static double similarSeconds = 0.5;
+    /**
+     * Every part of the robot keeps this far, inches, from a ball the drive isn't going for (NECTAR
+     * on a POLLEN seek, opponent NECTAR always): at the stop and on the way (2026-10-29).
+     */
+    public static double avoidMargin = 3;
     /** The intake takes balls in at the back, not the front. Unknown until the intake is built. */
     public static boolean intakeAtBack = false;
 
@@ -108,12 +128,15 @@ public final class VisionTuning {
         s.within = within;
         s.standoff = standoff;
         s.lookSeconds = lookSeconds;
+        s.settleSeconds = settleSeconds;
         s.commit = commit;
         s.replanMove = replanMove;
         s.replanEveryMs = replanEveryMs;
+        s.speed = driveSpeed;
         s.preferGroups = preferGroups;
         s.clusterRadius = clusterRadius;
         s.similarSeconds = similarSeconds;
+        s.avoidMargin = avoidMargin;
         s.side = intakeAtBack ? BallApproach.Side.BACK : BallApproach.Side.FRONT;
         return s;
     }

@@ -85,6 +85,7 @@ public final class BallTracker {
         private int streak;
         private int sightings;
         private boolean confirmed;
+        private boolean edgeOnly;
         private double blobRatio = 1;
         private int blob = 1;
         private double minX;
@@ -115,6 +116,11 @@ public final class BallTracker {
         public int sightings() { return sightings; }
         public boolean confirmed() { return confirmed; }
         /**
+         * Seen only at the image edge so far, where a ball may be cut off and its position is
+         * rough: a ball to keep clear of, never one to go for. Cleared once it is seen properly.
+         */
+        public boolean edgeOnly() { return edgeOnly; }
+        /**
          * How many balls this is, from its box's size: 1 for a lone ball, more when touching balls
          * come as one box. A smoothed estimate, rounded.
          */
@@ -144,6 +150,11 @@ public final class BallTracker {
             confirmed |= streak >= confirmFrames;
         }
 
+        /** Seen again, but only at the edge: still there, position unchanged. */
+        private void glimpsed(double seenMs) {
+            lastSeenMs = seenMs;
+        }
+
         private void missed() {
             streak = 0;
         }
@@ -163,6 +174,7 @@ public final class BallTracker {
     private double lastFrame = Double.NaN;
     private int nextId = 1;
     private String lastSummary = "no frame yet";
+    private String lastDetail = "no frame yet";
 
     public BallTracker(Settings settings) {
         this.settings = settings;
@@ -183,6 +195,7 @@ public final class BallTracker {
         boolean steady = robotAtCapture != null && Math.abs(Math.toDegrees(turnRate)) <= settings.maxTurnRateDeg;
 
         List<Ball> seen = new ArrayList<>();
+        List<String> details = new ArrayList<>();
         List<String> unsureNotes = new ArrayList<>();
         int unsure = 0;
         int edge = 0;
@@ -192,11 +205,13 @@ public final class BallTracker {
             for (Detection d : frame.detections) {
                 if (mount.nearEdge(d.txDeg, d.tyDeg)) {
                     edge++;
+                    details.add(detail(d, Double.NaN, atEdge(d, robotAtCapture, mount, frame.captureMs, seen)));
                     continue;
                 }
                 double[] r = mount.toRobot(d.txDeg, d.tyDeg, d.kind.centreHeight());
                 if (r == null || Math.hypot(r[0], r[1]) > settings.maxRange) {
                     far++;
+                    details.add(detail(d, Double.NaN, "too far"));
                     continue;
                 }
                 double ratio = d.areaPct > 0
@@ -207,29 +222,40 @@ public final class BallTracker {
                     unsure++;
                     unsureNotes.add(String.format(Locale.US, "%.0f%%%s", d.confidence * 100,
                             Double.isNaN(ratio) ? "" : String.format(Locale.US, " ≈%.1f balls", ratio)));
+                    details.add(detail(d, ratio, "unsure"));
                     continue;
                 }
                 double[] at = onField(CameraMount.toField(robotAtCapture, r), d.kind);
                 if (at == null) {
                     outside++;
+                    details.add(detail(d, ratio, "beyond the walls"));
                     continue;
                 }
                 Ball match = nearest(d.kind, at, seen);
                 if (match != null) {
+                    if (match.edgeOnly) {
+                        // Seen properly at last: start again from this sighting, not the edge ones.
+                        match.edgeOnly = false;
+                        match.x = at[0];
+                        match.y = at[1];
+                    }
                     match.seen(at, d.confidence, frame.captureMs, settings.confirmFrames);
                     match.sized(ratio, settings.maxBlob, false);
                     seen.add(match);
+                    details.add(detail(d, ratio, "→ #" + match.id));
                 } else {
                     Ball b = new Ball(nextId++, d.kind, at, d.confidence, frame.captureMs);
                     b.confirmed = settings.confirmFrames <= 1;
                     b.sized(ratio, settings.maxBlob, true);
                     balls.add(b);
                     seen.add(b);
+                    details.add(detail(d, ratio, "→ #" + b.id + " (new)"));
                 }
             }
         }
         lastSummary = summary(frame.detections.size(), robotAtCapture == null ? "no robot pose" : !steady ? "turning too fast" : null,
                 frame.detections.size() - unsure - edge - far - outside, unsureNotes, edge, far, outside);
+        lastDetail = steady ? String.join(" | ", details) : lastSummary;
 
         for (Iterator<Ball> it = balls.iterator(); it.hasNext(); ) {
             Ball b = it.next();
@@ -256,20 +282,86 @@ public final class BallTracker {
         return lastSummary;
     }
 
+    /**
+     * Each detection in the latest frame: kind, confidence, the camera's box area (ta, as it
+     * comes) and how many balls that makes, and what happened to it, e.g. "POLLEN 91% ta 4.100
+     * ≈1.0 balls → #3 | RED_NECTAR 38% ta 0.030 ≈0.0 balls unsure". For the robot log: it settles
+     * what units ta is in, and why a ball was or wasn't used.
+     */
+    public String lastFrameDetail() {
+        return lastDetail;
+    }
+
+    /** Every tracked ball, e.g. "#3 POLLEN×2 (108, 125) sure | #4 POLLEN (110, 119) 2 in a row". For the robot log. */
+    public String describeTracked() {
+        if (balls.isEmpty()) {
+            return "none";
+        }
+        StringBuilder s = new StringBuilder();
+        for (Ball b : balls) {
+            s.append(s.length() == 0 ? "" : " | ").append(String.format(Locale.US, "#%d %s%s (%.0f, %.0f) %s", b.id, b.kind,
+                    b.blob > 1 ? "×" + b.blob : "", b.x, b.y, (b.confirmed ? "sure" : b.streak + " in a row") + (b.edgeOnly ? ", edge only" : "")));
+        }
+        return s.toString();
+    }
+
     /** Every tracked ball, confirmed or not. */
     public List<Ball> balls() {
         return Collections.unmodifiableList(balls);
     }
 
-    /** The balls seen in enough consecutive frames to trust. */
+    /** The balls seen in enough consecutive frames to trust, not counting those seen only at the edge. */
     public List<Ball> confirmed() {
         List<Ball> out = new ArrayList<>();
         for (Ball b : balls) {
-            if (b.confirmed) {
+            if (b.confirmed && !b.edgeOnly) {
                 out.add(b);
             }
         }
         return out;
+    }
+
+    /** Balls seen often enough, but only at the image edge ({@link Ball#edgeOnly}): to keep clear of. */
+    public List<Ball> confirmedAtEdge() {
+        List<Ball> out = new ArrayList<>();
+        for (Ball b : balls) {
+            if (b.confirmed && b.edgeOnly) {
+                out.add(b);
+            }
+        }
+        return out;
+    }
+
+    /**
+     * A detection at the image edge. Too rough to steer by, but a ball there is still a ball to
+     * keep clear of: it becomes, or refreshes, an {@link Ball#edgeOnly} ball. A ball already seen
+     * properly is only kept alive. Returns what happened, for {@link #lastFrameDetail}.
+     */
+    private String atEdge(Detection d, Pose robot, CameraMount mount, double seenMs, List<Ball> seen) {
+        double[] r = mount.toRobot(d.txDeg, d.tyDeg, d.kind.centreHeight());
+        if (r == null || Math.hypot(r[0], r[1]) > settings.maxRange || d.confidence < settings.minConfidence) {
+            return "at the edge";
+        }
+        double[] at = onField(CameraMount.toField(robot, r), d.kind);
+        if (at == null) {
+            return "at the edge";
+        }
+        Ball match = nearest(d.kind, at, seen);
+        if (match == null) {
+            Ball b = new Ball(nextId++, d.kind, at, d.confidence, seenMs);
+            b.edgeOnly = true;
+            b.confirmed = settings.confirmFrames <= 1;
+            balls.add(b);
+            seen.add(b);
+            return "at the edge → #" + b.id + " (new, edge only)";
+        }
+        seen.add(match);
+        if (match.edgeOnly) {
+            match.seen(at, d.confidence, seenMs, settings.confirmFrames);
+            return "at the edge → #" + match.id + " (edge only)";
+        }
+        match.glimpsed(seenMs);
+        return "at the edge → #" + match.id;
     }
 
     /** The tracked ball with this id, or null once it has been forgotten. */
@@ -312,6 +404,11 @@ public final class BallTracker {
             return null;
         }
         return new double[] {Math.max(r, Math.min(Field.SIZE - r, at[0])), Math.max(r, Math.min(Field.SIZE - r, at[1]))};
+    }
+
+    private static String detail(Detection d, double ratio, String outcome) {
+        return String.format(Locale.US, "%s %.0f%% ta %.3f%s %s", d.kind, d.confidence * 100, d.areaPct,
+                Double.isNaN(ratio) ? "" : String.format(Locale.US, " ≈%.1f balls", ratio), outcome);
     }
 
     private static String summary(int seen, String skipped, int used, List<String> unsure, int edge, int far, int outside) {

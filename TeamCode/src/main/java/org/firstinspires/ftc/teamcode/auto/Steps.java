@@ -1,5 +1,7 @@
 package org.firstinspires.ftc.teamcode.auto;
 
+import com.pedropathing.algorithm.Foresight;
+import com.pedropathing.algorithm.ForesightConfig;
 import com.pedropathing.math.Pose;
 import com.pedropathing.paths.Path;
 
@@ -7,6 +9,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.function.BooleanSupplier;
+import java.util.function.Function;
 
 /**
  * Factories for building autonomous routines declaratively. Import statically:
@@ -87,7 +90,62 @@ public final class Steps {
         return new DriveTo(name, target, obstacles, margin);
     }
 
+    /**
+     * Runs {@code step} with the Follower's path speed capped at {@code fraction} of the robot's
+     * top speed (Pedro Foresight's {@code maxPathSpeed}, a fraction of what the drivetrain can do).
+     * The previous cap is put back when the step ends, finished or interrupted. 1 or more means
+     * no change. Paths only: turns on the spot and holds keep full power.
+     */
+    public static Step atSpeed(double fraction, Step step) {
+        return new AtSpeed(fraction, step, Steps::foresightConfig);
+    }
+
+    /** The running Follower's Foresight settings, or null if it has none (tests, another algorithm). */
+    static ForesightConfig foresightConfig(AutoContext ctx) {
+        return ctx.follower != null && ctx.follower.algorithm() instanceof Foresight
+                ? ((Foresight) ctx.follower.algorithm()).config : null;
+    }
+
     // ---- implementations ------------------------------------------------------------
+
+    static final class AtSpeed implements Step {
+        private final double fraction;
+        private final Step step;
+        private final Function<AutoContext, ForesightConfig> config;
+        private ForesightConfig capped;
+        private double previous;
+
+        AtSpeed(double fraction, Step step, Function<AutoContext, ForesightConfig> config) {
+            this.fraction = fraction;
+            this.step = step;
+            this.config = config;
+        }
+
+        @Override
+        public void start(AutoContext ctx) {
+            ForesightConfig c = fraction < 1 && fraction > 0 ? config.apply(ctx) : null;
+            if (c != null) {
+                // The settings object is the robot's own, shared by every path: restored in end().
+                previous = c.maxPathSpeed.get();
+                c.maxPathSpeed.set(fraction);
+                capped = c;
+            }
+            step.start(ctx);
+        }
+
+        @Override public boolean update(AutoContext ctx) { return step.update(ctx); }
+
+        @Override
+        public void end(AutoContext ctx, boolean interrupted) {
+            step.end(ctx, interrupted);
+            if (capped != null) {
+                capped.maxPathSpeed.set(previous);
+                capped = null;
+            }
+        }
+
+        @Override public String name() { return step.name(); }
+    }
 
     static final class Sequence implements Step {
         private final List<Step> steps;

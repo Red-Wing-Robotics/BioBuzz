@@ -139,7 +139,8 @@ public class BallTrackerTest {
         // ty 19.5°, inside the 2° edge margin, so none were used and the seek gave up.
         Pose firstSpot = new Pose(16, 34, -Math.PI / 2);
         frame(firstSpot, pollen(12, 1.4, firstSpot), pollen(18, 1.4, firstSpot));
-        assertTrue(tracker.balls().isEmpty());
+        assertTrue(tracker.confirmed().isEmpty());
+        assertTrue("kept only as balls to keep clear of", tracker.balls().get(0).edgeOnly() && tracker.balls().get(1).edgeOnly());
         assertEquals("2 seen, 0 used: 2 at the image edge", tracker.lastFrameSummary());
 
         Pose garden = new Pose(11, 26, -Math.PI / 2); // vision_seek.json's GARDEN now
@@ -194,6 +195,46 @@ public class BallTrackerTest {
     }
 
     @Test
+    public void theLogSaysWhatEachDetectionWasAndEveryBallTracked() {
+        frame(ROBOT, box(45, 26, ROBOT, 2, 0.9), box(38, 30, ROBOT, 1, 0.30));
+        String detail = tracker.lastFrameDetail();
+        assertTrue(detail, detail.matches("POLLEN 90% ta \\d+\\.\\d{3} ≈2\\.0 balls → #1 \\(new\\) \\| POLLEN 30% ta \\d+\\.\\d{3} ≈1\\.0 balls unsure"));
+        frame(ROBOT, box(45, 26, ROBOT, 2, 0.9));
+        frame(ROBOT, box(45, 26, ROBOT, 2, 0.9), pollen(40, 21, ROBOT));
+        assertEquals("#1 POLLEN×2 (45, 26) sure | #2 POLLEN (40, 21) 1 in a row", tracker.describeTracked());
+    }
+
+    @Test
+    public void aBallAtTheImageEdgeIsOnlyToKeepClearOfUntilSeenProperly() {
+        Pose turned = new Pose(20, 20, Math.toRadians(40)); // (45, 26) is near the right edge from here
+        Detection atEdge = sees(BallKind.RED_NECTAR, 45, 26, turned, 0.9);
+        assertTrue("precondition: at the edge", MOUNT.nearEdge(atEdge.txDeg, atEdge.tyDeg));
+        for (int i = 0; i < 3; i++) {
+            frame(turned, atEdge);
+        }
+        assertTrue("never a target", tracker.confirmed().isEmpty());
+        assertEquals(1, tracker.confirmedAtEdge().size());
+        assertTrue(tracker.lastFrameDetail(), tracker.lastFrameDetail().endsWith("at the edge → #1 (edge only)"));
+
+        frame(ROBOT, sees(BallKind.RED_NECTAR, 45, 26, ROBOT, 0.9));
+        assertEquals("seen properly: an ordinary ball", 1, tracker.confirmed().size());
+        assertTrue(tracker.confirmedAtEdge().isEmpty());
+        assertEquals(45, tracker.confirmed().get(0).x(), 1e-6);
+    }
+
+    @Test
+    public void anEdgeSightingOfATrackedBallKeepsItButDoesntMoveIt() {
+        for (int i = 0; i < 3; i++) {
+            frame(ROBOT, pollen(45, 26, ROBOT));
+        }
+        Pose turned = new Pose(20, 20, Math.toRadians(40));
+        frame(turned, sees(BallKind.POLLEN, 46, 27, turned, 0.9));
+        assertEquals(1, tracker.balls().size());
+        assertEquals(45, tracker.balls().get(0).x(), 1e-6);
+        assertTrue(tracker.lastFrameDetail().endsWith("at the edge → #1"));
+    }
+
+    @Test
     public void theCountIsSmoothedOverFrames() {
         frame(ROBOT, box(45, 26, ROBOT, 3));
         frame(ROBOT, box(45, 26, ROBOT, 1)); // halfway: 2
@@ -204,6 +245,8 @@ public class BallTrackerTest {
     public void gatesKeepOutUnsureEdgeFarAndBlurredSightings() {
         frame(ROBOT, sees(BallKind.POLLEN, 45, 26, ROBOT, 0.3));
         frame(ROBOT, new Detection(BallKind.POLLEN, 26.5, -5, 0.9));
+        assertTrue(tracker.confirmed().isEmpty());
+        tracker.clear(); // the edge sighting is kept only as a ball to keep clear of
         settings.maxRange = 20;
         frame(ROBOT, pollen(45, 26, ROBOT));
         settings.maxRange = 40;

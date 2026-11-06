@@ -16,7 +16,8 @@ import java.util.Map;
  *
  * All optional: {@code colors} is {@code "pollen"}, {@code "nectar"} (ours) or {@code "ours"}
  * (both); {@code within} and {@code standoff} are inches from the robot's tracking centre;
- * {@code look} is how long to wait for a ball, seconds; {@code prefer} is {@code "most"} (a
+ * {@code look} is how long to wait for a ball, seconds; {@code speed} is the drive's path speed
+ * as a fraction of top speed (more than 0, up to 1); {@code prefer} is {@code "most"} (a
  * bigger group of balls about as near wins; the default) or {@code "nearest"}. Bad args fail at
  * INIT.
  */
@@ -48,6 +49,14 @@ public final class ToBallArgs {
                 case "look":
                     s.lookSeconds = number(v, "args.look", "seconds", true);
                     break;
+                case "speed": {
+                    double speed = number(v, "args.speed", "top speed (0–1)", false);
+                    if (speed > 1) {
+                        throw new RouteException("args.speed: a fraction of top speed, up to 1");
+                    }
+                    s.speed = speed;
+                    break;
+                }
                 case "prefer": {
                     String p = v.isJsonPrimitive() && v.getAsJsonPrimitive().isString() ? v.getAsString() : "";
                     if (!p.equals("most") && !p.equals("nearest")) {
@@ -57,7 +66,7 @@ public final class ToBallArgs {
                     break;
                 }
                 default:
-                    throw new RouteException("args: unknown key \"" + e.getKey() + "\" (allowed: colors, within, standoff, look, prefer)");
+                    throw new RouteException("args: unknown key \"" + e.getKey() + "\" (allowed: colors, within, standoff, look, speed, prefer)");
             }
         }
         return s;

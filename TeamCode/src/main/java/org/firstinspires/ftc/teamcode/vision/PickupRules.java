@@ -52,9 +52,10 @@ public final class PickupRules {
     /**
      * Why a ball of {@code kind} at (x, y) is not a target, or null if it is: opponent NECTAR
      * (G408); outside the walls; under the HIVE, whose outline is grown by {@code hiveMargin} (G409:
-     * falling elements, no camping there); and in AUTO, on the other half (G402).
+     * falling elements, no camping there); and with {@code ownHalfOnly} (AUTO), on the other half
+     * (G402).
      */
-    public static String whyNot(BallKind kind, double x, double y, Alliance alliance, boolean auto, double hiveMargin) {
+    public static String whyNot(BallKind kind, double x, double y, Alliance alliance, boolean ownHalfOnly, double hiveMargin) {
         if (kind.isOpponentNectar(alliance)) {
             return "opponent NECTAR (G408)";
         }
@@ -64,7 +65,7 @@ public final class PickupRules {
         if (Field.HIVE.grow(hiveMargin).contains(x, y)) {
             return "under the HIVE (G409)";
         }
-        if (auto && !Field.onOwnHalf(alliance, x)) {
+        if (ownHalfOnly && !Field.onOwnHalf(alliance, x)) {
             return "on the other half (G402)";
         }
         return null;

@@ -1,0 +1,23 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "jimothy",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "export JAVA_HOME=\"${JAVA_HOME:-/Applications/Android Studio.app/Contents/jbr/Contents/Home}\"; exec ./gradlew -p tools/routeview run"
+      ],
+      "port": 8765
+    },
+    {
+      "name": "jimothy-8766",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "export JAVA_HOME=\"${JAVA_HOME:-/Applications/Android Studio.app/Contents/jbr/Contents/Home}\"; exec ./gradlew -p tools/routeview run --args='--port 8766'"
+      ],
+      "port": 8766
+    }
+  ]
+}
